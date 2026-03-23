@@ -1,0 +1,49 @@
+
+# Unity 기본 규칙 예시
+-keep class com.unity3d.player.UnityPlayer { *; }
+
+# Backend SDK 관련 클래스 보호
+-keep class io.thebackend.unity.** { *; }
+-keep class io.thebackend.googlelogin.** { *; }
+
+-keep class com.google.android.gms.ads.** { *; }
+-keep interface com.google.android.gms.ads.** { *; }
+-dontwarn com.google.android.gms.**
+
+# ----------------------------
+# Google Play Services (공통)
+# ----------------------------
+-keep class com.google.android.gms.** { *; }
+-dontwarn com.google.android.gms.**
+
+# ----------------------------
+# Google Sign-In 관련
+# ----------------------------
+-keep class com.google.android.gms.auth.api.signin.** { *; }
+-keep class com.google.android.gms.common.api.** { *; }
+-keep class com.google.android.gms.tasks.** { *; }
+
+# ----------------------------
+# AdMob (Google Mobile Ads SDK)
+# ----------------------------
+-keep public class com.google.android.gms.ads.** {
+    public *;
+}
+
+# AdMob Adapter & Mediation (광고 네트워크 연동 시 필요)
+-keep class com.google.ads.mediation.** { *; }
+-keep class com.google.android.gms.ads.mediation.** { *; }
+-keep class com.google.android.gms.ads.identifier.** { *; }
+
+# Google 유니티용 광고 SDK 사용 시
+-keep class com.unity3d.ads.** { *; }
+-keep class com.unity3d.services.** { *; }
+
+# Gson (AdMob 내부에서 JSON 파싱 시 사용)
+-keep class com.google.gson.** { *; }
+-dontwarn com.google.gson.**
+
+# Reflection 방지
+-keepclassmembers class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
