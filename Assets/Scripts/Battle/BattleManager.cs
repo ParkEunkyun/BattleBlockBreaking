@@ -220,6 +220,12 @@ public class BattleManager : MonoBehaviour
     [SerializeField] private Sprite curseDiag4CellSprite;
     [SerializeField] private Sprite curseSplit4CellSprite;
 
+    [Header("Loading Overlay")]
+    [SerializeField] private GameObject loadingRoot;
+    [SerializeField] private TMP_Text loadingText;
+
+    private Coroutine _loadingHideRoutine;
+
     private GameObject _resultPhaseRoot;
     private GameObject _victoryEmblem;
     private GameObject _drawEmblem;
@@ -340,6 +346,8 @@ public class BattleManager : MonoBehaviour
 
     private void Start()
     {
+        ShowLoadingOverlay(IsRankedBattle ? "상대 연결 중..." : "준비 중...");
+
         BuildBoards();
         ResetCurrentRoundBlocks();
         HideDefensePhase();
@@ -944,14 +952,19 @@ public class BattleManager : MonoBehaviour
     private void BeginPlayableRound()
     {
         ResetNetworkRoundSyncState();
+
         GiveThreeBlocks();
         TrySpawnRandomBoardItem();
         DrawAllBlockPreviews();
+
         RefreshOwnedItemUI();
         RefreshBoardVisual();
         RefreshOpponentMiniBoard();
+
         EnterPlayPhase();
         RefreshRoundEndButtonUI();
+
+        HideLoadingOverlayNextFrame();
     }
 
     private void AdvanceToNextRound()
@@ -1000,6 +1013,8 @@ public class BattleManager : MonoBehaviour
 
         RefreshDefenseUI();
         RefreshTopHud();
+
+        HideLoadingOverlayNextFrame();
     }
 
     private void HideDefensePhase()
@@ -2759,6 +2774,8 @@ public class BattleManager : MonoBehaviour
 
     private void ShowResultPhase()
     {
+        HideLoadingOverlay();
+
         if (_resultPhaseRoot == null)
             return;
 
@@ -2851,18 +2868,20 @@ public class BattleManager : MonoBehaviour
 
     public void OnNetworkGameStart(int seed, bool isHost)
     {
+        ShowLoadingOverlay("블록 준비 중...");
+
         _networkSeed = seed;
         _isHostPlayer = isHost;
         _networkGameStarted = true;
 
         ResetNetworkRoundSyncState();
 
-        if (roundEndButton != null)
-            roundEndButton.gameObject.SetActive(true);
-
         Debug.Log($"[BattleManager] OnNetworkGameStart / seed={seed} / isHost={isHost}");
 
         StartRound();
+
+        if (roundEndButton != null)
+            roundEndButton.gameObject.SetActive(true);
     }
 
     private void TryResolveRoundEndSync()
@@ -2938,6 +2957,43 @@ public class BattleManager : MonoBehaviour
 
         Debug.Log("[BBB] ResetNetworkRoundSyncState");
     }
+    private void ShowLoadingOverlay(string message)
+    {
+        if (loadingRoot != null)
+            loadingRoot.SetActive(true);
 
+        if (loadingText != null)
+            loadingText.text = message;
+    }
+
+    private void HideLoadingOverlay()
+    {
+        if (_loadingHideRoutine != null)
+        {
+            StopCoroutine(_loadingHideRoutine);
+            _loadingHideRoutine = null;
+        }
+
+        if (loadingRoot != null)
+            loadingRoot.SetActive(false);
+    }
+
+    private void HideLoadingOverlayNextFrame()
+    {
+        if (_loadingHideRoutine != null)
+            StopCoroutine(_loadingHideRoutine);
+
+        _loadingHideRoutine = StartCoroutine(CoHideLoadingOverlayNextFrame());
+    }
+
+    private IEnumerator CoHideLoadingOverlayNextFrame()
+    {
+        yield return null;
+
+        if (loadingRoot != null)
+            loadingRoot.SetActive(false);
+
+        _loadingHideRoutine = null;
+    }
     #endregion
 }
