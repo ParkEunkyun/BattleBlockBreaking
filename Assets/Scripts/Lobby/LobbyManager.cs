@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -105,7 +106,7 @@ public class LobbyManager : MonoBehaviour
     private readonly List<BattleManager.AttackItemId> _editingAttackLoadout = new List<BattleManager.AttackItemId>(3);
     private readonly List<BattleManager.SupportItemId> _editingSupportLoadout = new List<BattleManager.SupportItemId>(2);
 
-    private bool _isRankedMode;
+    [SerializeField] private bool _isRankedMode;
     private Coroutine _matchRoutine;
 
     private TMP_Text _nicknameText;
@@ -147,6 +148,10 @@ public class LobbyManager : MonoBehaviour
     private static readonly Color32 ModeUnselectedColor = new Color32(80, 90, 120, 255);
     private static readonly Color32 ChoiceSelectedColor = new Color32(255, 214, 120, 255);
     private static readonly Color32 ChoiceUnselectedColor = new Color32(255, 255, 255, 255);
+
+    [SerializeField] private Sprite selectSprite;
+    [SerializeField] private Sprite normalSprite;
+
 
     private void Awake()
     {
@@ -483,8 +488,16 @@ public class LobbyManager : MonoBehaviour
 
         Image bg = button.GetComponent<Image>();
         if (bg != null)
+            bg.sprite = selected ? selectSprite : normalSprite;       
+        
+        /*
+        Image bg = button.GetComponent<Image>();
+        if (bg != null)
             bg.color = selected ? ModeSelectedColor : ModeUnselectedColor;
+        */
     }
+
+
 
     private void RefreshPreviewUI()
     {

@@ -2576,7 +2576,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &623881399
 RectTransform:
   m_ObjectHideFlags: 0
@@ -6015,14 +6015,15 @@ MonoBehaviour:
   - itemId: 12
     itemSprite: {fileID: 21300000, guid: 763865282f1984bbd97e33d21e2e22e8, type: 3}
     incomingSprite: {fileID: 21300000, guid: 763865282f1984bbd97e33d21e2e22e8, type: 3}
-  myBoardCellSize: {x: 110, y: 110}
-  myBoardSpacing: {x: 5, y: 5}
+  myBoardCellSize: {x: 125, y: 125}
+  myBoardSpacing: {x: 1, y: 1}
   opponentMiniCellSize: {x: 25, y: 25}
-  opponentMiniSpacing: {x: 4, y: 4}
-  slotPreviewCellSize: 55
-  slotPreviewSpacing: 4
-  dragPreviewCellSize: 70
-  dragPreviewSpacing: 4
+  opponentMiniSpacing: {x: 1, y: 1}
+  slotPreviewCellSize: 75
+  slotPreviewSpacing: 1
+  dragPreviewCellSize: 125
+  dragPreviewSpacing: 1
+  dragOffset: {x: 0, y: 180}
   maxRounds: 2
   defensePhaseSeconds: 3
   playPhaseSeconds: 30
@@ -6045,6 +6046,23 @@ MonoBehaviour:
   myNickname: Me
   opponentNickname: Opponent
   opponentScore: 0
+  h3CellSprite: {fileID: -739009968, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  l3CellSprite: {fileID: -739009968, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  h4CellSprite: {fileID: -339068557, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  o4CellSprite: {fileID: -339068557, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  t4CellSprite: {fileID: -1884510018, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  l4CellSprite: {fileID: -1884510018, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  l4MCellSprite: {fileID: 1692553810, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  z4CellSprite: {fileID: 1692553810, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  z4MCellSprite: {fileID: 1467438889, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  h5CellSprite: {fileID: 1467438889, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  p5CellSprite: {fileID: -739009968, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  t5CellSprite: {fileID: -739009968, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  l5CellSprite: {fileID: -339068557, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  curseDiag3CellSprite: {fileID: -339068557, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  curseSplit3CellSprite: {fileID: -1884510018, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  curseDiag4CellSprite: {fileID: 1692553810, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  curseSplit4CellSprite: {fileID: 1467438889, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
 --- !u!4 &1524103973
 Transform:
   m_ObjectHideFlags: 0
@@ -7358,7 +7376,7 @@ MonoBehaviour:
   m_ScaleFactor: 1
   m_ReferenceResolution: {x: 1080, y: 1920}
   m_ScreenMatchMode: 0
-  m_MatchWidthOrHeight: 0.5
+  m_MatchWidthOrHeight: 0
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96

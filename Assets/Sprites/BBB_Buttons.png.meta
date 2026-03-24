@@ -1,0 +1,449 @@
+fileFormatVersion: 2
+guid: d29528a4d5faaaf49be081588080c166
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 3
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 3
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 3
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 3
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: BBB_Buttons_69
+      rect:
+        serializedVersion: 2
+        x: 84
+        y: 1050
+        width: 847
+        height: 182
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 423, y: 90, z: 423, w: 90}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 165e14280b7f7424b8725afdca660be8
+      internalID: -765154266
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: BBB_Buttons_70
+      rect:
+        serializedVersion: 2
+        x: 72
+        y: 884
+        width: 223
+        height: 93
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 111, y: 46, z: 111, w: 46}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 69b44ec7f179f724e8110bbd0351d7f8
+      internalID: 963503383
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: BBB_Buttons_71
+      rect:
+        serializedVersion: 2
+        x: 300
+        y: 882
+        width: 210
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 105, y: 48, z: 105, w: 48}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 273db934824946c4d9d741966518b1d3
+      internalID: -614002835
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: BBB_Buttons_72
+      rect:
+        serializedVersion: 2
+        x: 515
+        y: 884
+        width: 209
+        height: 93
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 104, y: 46, z: 104, w: 46}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 74a7d37100b35fd468671d07ba4cdbe1
+      internalID: -117066578
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: BBB_Buttons_73
+      rect:
+        serializedVersion: 2
+        x: 730
+        y: 882
+        width: 217
+        height: 96
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 108, y: 48, z: 108, w: 48}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: eb4ec559692359847b464e76f08c4e57
+      internalID: 209738388
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    nameFileIdTable:
+      BBB_Buttons_0: 700260658
+      BBB_Buttons_1: 1895658200
+      BBB_Buttons_10: 190598124
+      BBB_Buttons_100: -1094141604
+      BBB_Buttons_101: 187442181
+      BBB_Buttons_102: 670829030
+      BBB_Buttons_103: 1348045740
+      BBB_Buttons_104: 1899869091
+      BBB_Buttons_105: 969930348
+      BBB_Buttons_106: 543786776
+      BBB_Buttons_107: 1297036159
+      BBB_Buttons_108: 917639190
+      BBB_Buttons_109: -212666416
+      BBB_Buttons_11: 1462765856
+      BBB_Buttons_110: 1145505320
+      BBB_Buttons_111: 259153514
+      BBB_Buttons_112: 1579731522
+      BBB_Buttons_113: -877587490
+      BBB_Buttons_114: 304190043
+      BBB_Buttons_115: 1766874065
+      BBB_Buttons_116: -207308200
+      BBB_Buttons_117: 1453961375
+      BBB_Buttons_118: 1830021511
+      BBB_Buttons_119: 179590539
+      BBB_Buttons_12: 1947419713
+      BBB_Buttons_120: 1220707399
+      BBB_Buttons_121: 1526070968
+      BBB_Buttons_122: 442080279
+      BBB_Buttons_123: 1248033904
+      BBB_Buttons_124: 35780243
+      BBB_Buttons_125: -2132838408
+      BBB_Buttons_126: -2006796551
+      BBB_Buttons_127: -2013589814
+      BBB_Buttons_128: -933334737
+      BBB_Buttons_129: 371904278
+      BBB_Buttons_13: 753229966
+      BBB_Buttons_130: -1437101231
+      BBB_Buttons_131: -17513360
+      BBB_Buttons_132: 1986596003
+      BBB_Buttons_133: -126701948
+      BBB_Buttons_134: 631398111
+      BBB_Buttons_135: 513955166
+      BBB_Buttons_136: -1530266260
+      BBB_Buttons_137: -923609875
+      BBB_Buttons_138: -128892556
+      BBB_Buttons_139: 194044038
+      BBB_Buttons_14: 1198651312
+      BBB_Buttons_140: 348945013
+      BBB_Buttons_141: -1666850596
+      BBB_Buttons_142: 1797740745
+      BBB_Buttons_143: 971970973
+      BBB_Buttons_144: 799762089
+      BBB_Buttons_145: 163840398
+      BBB_Buttons_146: -656461797
+      BBB_Buttons_147: 2140764106
+      BBB_Buttons_148: -1422084974
+      BBB_Buttons_149: 1344599363
+      BBB_Buttons_15: 620447382
+      BBB_Buttons_150: 2047749559
+      BBB_Buttons_151: -1624657105
+      BBB_Buttons_152: -944968945
+      BBB_Buttons_153: -1351450449
+      BBB_Buttons_154: 526438915
+      BBB_Buttons_155: -1706160386
+      BBB_Buttons_156: 1816219448
+      BBB_Buttons_157: 223543108
+      BBB_Buttons_158: 633229996
+      BBB_Buttons_159: 888179484
+      BBB_Buttons_16: 1206504733
+      BBB_Buttons_160: 922549429
+      BBB_Buttons_161: 983526353
+      BBB_Buttons_162: -1234879227
+      BBB_Buttons_163: -1852212276
+      BBB_Buttons_164: 857022333
+      BBB_Buttons_165: 1895424364
+      BBB_Buttons_166: 29393976
+      BBB_Buttons_167: -1571704334
+      BBB_Buttons_168: -983542497
+      BBB_Buttons_169: 1043660128
+      BBB_Buttons_17: -36247988
+      BBB_Buttons_170: -1243241590
+      BBB_Buttons_171: -640209155
+      BBB_Buttons_172: 880771043
+      BBB_Buttons_173: -1113596782
+      BBB_Buttons_174: -696722058
+      BBB_Buttons_175: 1474656997
+      BBB_Buttons_176: -856891206
+      BBB_Buttons_177: 937262900
+      BBB_Buttons_178: -809995094
+      BBB_Buttons_179: -1653100281
+      BBB_Buttons_18: 63887587
+      BBB_Buttons_180: 1759501551
+      BBB_Buttons_181: 414081712
+      BBB_Buttons_182: 897227342
+      BBB_Buttons_183: -1996912637
+      BBB_Buttons_184: 763426616
+      BBB_Buttons_185: -1047529365
+      BBB_Buttons_186: 1257599061
+      BBB_Buttons_187: -1579845761
+      BBB_Buttons_188: 1013246783
+      BBB_Buttons_189: 115835395
+      BBB_Buttons_19: 1982264865
+      BBB_Buttons_190: 1785017617
+      BBB_Buttons_191: -274170268
+      BBB_Buttons_192: 256941643
+      BBB_Buttons_193: -1167372673
+      BBB_Buttons_194: 202347369
+      BBB_Buttons_195: 10761182
+      BBB_Buttons_196: -1464250783
+      BBB_Buttons_197: -789303151
+      BBB_Buttons_198: 957537904
+      BBB_Buttons_199: 1183829408
+      BBB_Buttons_2: 997638769
+      BBB_Buttons_20: 672473660
+      BBB_Buttons_200: -2052159645
+      BBB_Buttons_201: -374932871
+      BBB_Buttons_202: 1065471013
+      BBB_Buttons_203: -1006094762
+      BBB_Buttons_21: -558421077
+      BBB_Buttons_22: 2143113590
+      BBB_Buttons_23: 1037406612
+      BBB_Buttons_24: 792336564
+      BBB_Buttons_25: 187892125
+      BBB_Buttons_26: -557008070
+      BBB_Buttons_27: -722340571
+      BBB_Buttons_28: -1843064459
+      BBB_Buttons_29: 907191882
+      BBB_Buttons_3: 1942313396
+      BBB_Buttons_30: 651082228
+      BBB_Buttons_31: -1393694263
+      BBB_Buttons_32: 1021992210
+      BBB_Buttons_33: -1670845356
+      BBB_Buttons_34: 1188129912
+      BBB_Buttons_35: -2007535558
+      BBB_Buttons_36: -1194765645
+      BBB_Buttons_37: -1316822911
+      BBB_Buttons_38: 1857187668
+      BBB_Buttons_39: 159494353
+      BBB_Buttons_4: 1367566096
+      BBB_Buttons_40: -455806135
+      BBB_Buttons_41: -1473556414
+      BBB_Buttons_42: -1474532265
+      BBB_Buttons_43: -639965540
+      BBB_Buttons_44: -29093845
+      BBB_Buttons_45: 551979189
+      BBB_Buttons_46: 1250960060
+      BBB_Buttons_47: 618734107
+      BBB_Buttons_48: 325682549
+      BBB_Buttons_49: 34387681
+      BBB_Buttons_5: -277642016
+      BBB_Buttons_50: -910119498
+      BBB_Buttons_51: -1550110943
+      BBB_Buttons_52: -738695855
+      BBB_Buttons_53: 1891829264
+      BBB_Buttons_54: -494747648
+      BBB_Buttons_55: -420318024
+      BBB_Buttons_56: 1556144871
+      BBB_Buttons_57: -575686983
+      BBB_Buttons_58: -1966735230
+      BBB_Buttons_59: 904750480
+      BBB_Buttons_6: -1930250271
+      BBB_Buttons_60: 439570593
+      BBB_Buttons_61: 765896705
+      BBB_Buttons_62: -1143234836
+      BBB_Buttons_63: 1508726392
+      BBB_Buttons_64: -1477523866
+      BBB_Buttons_65: 1131559087
+      BBB_Buttons_66: 380135182
+      BBB_Buttons_67: 119231721
+      BBB_Buttons_68: -600387312
+      BBB_Buttons_69: -765154266
+      BBB_Buttons_7: 1658141861
+      BBB_Buttons_70: 963503383
+      BBB_Buttons_71: -614002835
+      BBB_Buttons_72: -117066578
+      BBB_Buttons_73: 209738388
+      BBB_Buttons_74: -2120211463
+      BBB_Buttons_75: 260404693
+      BBB_Buttons_76: -1522331602
+      BBB_Buttons_77: -525304264
+      BBB_Buttons_78: 924045145
+      BBB_Buttons_79: -1302810529
+      BBB_Buttons_8: -133609674
+      BBB_Buttons_80: -1176906331
+      BBB_Buttons_81: 1715634825
+      BBB_Buttons_82: -2037006066
+      BBB_Buttons_83: -1981766775
+      BBB_Buttons_84: -475042151
+      BBB_Buttons_85: 1658744238
+      BBB_Buttons_86: 1540135577
+      BBB_Buttons_87: 410523313
+      BBB_Buttons_88: 1798388930
+      BBB_Buttons_89: -1220587652
+      BBB_Buttons_9: 676515450
+      BBB_Buttons_90: -1922897108
+      BBB_Buttons_91: 1519538170
+      BBB_Buttons_92: 844020228
+      BBB_Buttons_93: 1223130771
+      BBB_Buttons_94: 372451296
+      BBB_Buttons_95: 1706791429
+      BBB_Buttons_96: -1438160680
+      BBB_Buttons_97: -2130273735
+      BBB_Buttons_98: 775059609
+      BBB_Buttons_99: 1432753960
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

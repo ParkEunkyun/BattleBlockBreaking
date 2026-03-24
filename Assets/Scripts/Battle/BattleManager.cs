@@ -79,6 +79,7 @@ public class BattleManager : MonoBehaviour
         H5,
         P5,
         T5,
+        L5,
 
         CurseDiag3,
         CurseSplit3,
@@ -100,14 +101,16 @@ public class BattleManager : MonoBehaviour
         public Color color;
         public List<Vector2Int> baseCells;
         public bool isCurse;
+        public Sprite cellSprite;
 
-        public BlockShape(BlockShapeId shapeId, int weight, Color color, List<Vector2Int> baseCells, bool isCurse)
+        public BlockShape(BlockShapeId shapeId, int weight, Color color, List<Vector2Int> baseCells, bool isCurse, Sprite cellSprite)
         {
             this.shapeId = shapeId;
             this.weight = weight;
             this.color = color;
             this.baseCells = baseCells;
             this.isCurse = isCurse;
+            this.cellSprite = cellSprite;
         }
     }
 
@@ -118,6 +121,7 @@ public class BattleManager : MonoBehaviour
         public Color color;
         public List<Vector2Int> cells;
         public bool isCurse;
+        public Sprite cellSprite;
     }
 
     [Header("Prefabs / Sprites")]
@@ -148,6 +152,8 @@ public class BattleManager : MonoBehaviour
     [SerializeField] private float slotPreviewSpacing = 4f;
     [SerializeField] private float dragPreviewCellSize = 30f;
     [SerializeField] private float dragPreviewSpacing = 4f;
+
+    [SerializeField] private Vector2 dragOffset = new Vector2(0f, 180f);
 
     [Header("Round / Phase")]
     [SerializeField] private int maxRounds = 12;
@@ -195,6 +201,25 @@ public class BattleManager : MonoBehaviour
     [SerializeField] private string opponentNickname = "Opponent";
     [SerializeField] private int opponentScore = 0;
 
+    [Header("Block Cell Sprites")]
+    [SerializeField] private Sprite h3CellSprite;
+    [SerializeField] private Sprite l3CellSprite;
+    [SerializeField] private Sprite h4CellSprite;
+    [SerializeField] private Sprite o4CellSprite;
+    [SerializeField] private Sprite t4CellSprite;
+    [SerializeField] private Sprite l4CellSprite;
+    [SerializeField] private Sprite l4MCellSprite;
+    [SerializeField] private Sprite z4CellSprite;
+    [SerializeField] private Sprite z4MCellSprite;
+    [SerializeField] private Sprite h5CellSprite;
+    [SerializeField] private Sprite p5CellSprite;
+    [SerializeField] private Sprite t5CellSprite;
+    [SerializeField] private Sprite l5CellSprite;
+    [SerializeField] private Sprite curseDiag3CellSprite;
+    [SerializeField] private Sprite curseSplit3CellSprite;
+    [SerializeField] private Sprite curseDiag4CellSprite;
+    [SerializeField] private Sprite curseSplit4CellSprite;
+
     private GameObject _resultPhaseRoot;
     private GameObject _victoryEmblem;
     private GameObject _drawEmblem;
@@ -213,9 +238,15 @@ public class BattleManager : MonoBehaviour
     private static readonly Color32 AttackSlotColor = new Color32(255, 100, 100, 255);
     private static readonly Color32 SupportSlotColor = new Color32(255, 203, 100, 255);
     private static readonly Color32 DefenseSlotColor = new Color32(100, 105, 255, 255);
-    private static readonly Color32 BoardBaseColor = new Color32(36, 38, 56, 255);
+    private static readonly Color32 BoardBaseColor = new Color32(255, 255, 255, 255); //new Color32(36, 38, 56, 255);
     private static readonly Color32 ObstacleColor = new Color32(62, 63, 72, 255);
     private static readonly Color32 SealedSlotColor = new Color32(140, 100, 220, 255);
+
+    private static readonly Color32 BlockColor1 = new Color32(230, 117, 127, 255); // E6757F
+    private static readonly Color32 BlockColor2 = new Color32(180, 113, 232, 255); // B471E8
+    private static readonly Color32 BlockColor3 = new Color32(230, 213, 107, 255); // E6D56B
+    private static readonly Color32 BlockColor4 = new Color32(107, 228, 130, 255); // 6BE482
+    private static readonly Color32 BlockColor5 = new Color32(112, 154, 231, 255); // 709AE7
 
     private Canvas _canvas;
     private RectTransform _dragLayer;
@@ -248,6 +279,7 @@ public class BattleManager : MonoBehaviour
     private readonly bool[,] _myOccupied = new bool[BoardSize, BoardSize];
     private readonly bool[,] _myObstacle = new bool[BoardSize, BoardSize];
     private readonly Color[,] _myColors = new Color[BoardSize, BoardSize];
+    private readonly Sprite[,] _myBlockSprites = new Sprite[BoardSize, BoardSize];
     private readonly BattleItemId[,] _boardItems = new BattleItemId[BoardSize, BoardSize];
 
     private readonly List<BlockShape> _normalShapeLibrary = new List<BlockShape>();
@@ -465,7 +497,7 @@ public class BattleManager : MonoBehaviour
 
         _myBoardRoot = FindRect(safeArea, "BoardRoot/MyBoardRoot");
         _opponentMiniBoardRoot = FindRect(safeArea, "TopHudRoot/OpponentMiniBoardPanel/OpponentMiniBoardRoot");
-        _ownedItemRoot = FindRect(safeArea, "OwnedItemRoot");        
+        _ownedItemRoot = FindRect(safeArea, "OwnedItemRoot");
 
         for (int i = 0; i < 3; i++)
         {
@@ -659,6 +691,7 @@ public class BattleManager : MonoBehaviour
                 _myObstacle[x, y] = false;
                 _myColors[x, y] = Color.clear;
                 _boardItems[x, y] = BattleItemId.None;
+                _myBlockSprites[x, y] = null;
             }
         }
     }
@@ -694,58 +727,65 @@ public class BattleManager : MonoBehaviour
         _normalShapeLibrary.Clear();
         _curseShapeLibrary.Clear();
 
-        AddShape(_normalShapeLibrary, BlockShapeId.H3, 90, new Color32(86, 204, 242, 255), false,
-    new Vector2Int(0, 0), new Vector2Int(1, 0), new Vector2Int(2, 0));
+        AddShape(_normalShapeLibrary, BlockShapeId.H3, 90, BlockColor1, false, h3CellSprite,
+            new Vector2Int(0, 0), new Vector2Int(1, 0), new Vector2Int(2, 0));
 
-        AddShape(_normalShapeLibrary, BlockShapeId.L3, 90, new Color32(111, 230, 185, 255), false,
+        AddShape(_normalShapeLibrary, BlockShapeId.L3, 90, BlockColor2, false, l3CellSprite,
             new Vector2Int(0, 0), new Vector2Int(0, 1), new Vector2Int(1, 1));
 
-        AddShape(_normalShapeLibrary, BlockShapeId.H4, 90, new Color32(255, 196, 87, 255), false,
+        AddShape(_normalShapeLibrary, BlockShapeId.H4, 90, BlockColor3, false, h4CellSprite,
             new Vector2Int(0, 0), new Vector2Int(1, 0), new Vector2Int(2, 0), new Vector2Int(3, 0));
 
-        AddShape(_normalShapeLibrary, BlockShapeId.O4, 60, new Color32(255, 224, 102, 255), false,
+        AddShape(_normalShapeLibrary, BlockShapeId.O4, 60, BlockColor4, false, o4CellSprite,
             new Vector2Int(0, 0), new Vector2Int(1, 0), new Vector2Int(0, 1), new Vector2Int(1, 1));
 
-        AddShape(_normalShapeLibrary, BlockShapeId.T4, 85, new Color32(255, 121, 121, 255), false,
+        AddShape(_normalShapeLibrary, BlockShapeId.T4, 85, BlockColor5, false, t4CellSprite,
             new Vector2Int(0, 0), new Vector2Int(1, 0), new Vector2Int(2, 0), new Vector2Int(1, 1));
 
-        AddShape(_normalShapeLibrary, BlockShapeId.L4, 85, new Color32(255, 159, 67, 255), false,
+        AddShape(_normalShapeLibrary, BlockShapeId.L4, 85, BlockColor1, false, l4CellSprite,
             new Vector2Int(0, 0), new Vector2Int(0, 1), new Vector2Int(0, 2), new Vector2Int(1, 2));
 
-        AddShape(_normalShapeLibrary, BlockShapeId.L4_M, 85, new Color32(255, 133, 162, 255), false,
+        AddShape(_normalShapeLibrary, BlockShapeId.L4_M, 85, BlockColor2, false, l4MCellSprite,
             new Vector2Int(1, 0), new Vector2Int(1, 1), new Vector2Int(1, 2), new Vector2Int(0, 2));
 
-        AddShape(_normalShapeLibrary, BlockShapeId.Z4, 75, new Color32(163, 230, 53, 255), false,
+        AddShape(_normalShapeLibrary, BlockShapeId.Z4, 75, BlockColor3, false, z4CellSprite,
             new Vector2Int(0, 0), new Vector2Int(1, 0), new Vector2Int(1, 1), new Vector2Int(2, 1));
 
-        AddShape(_normalShapeLibrary, BlockShapeId.Z4_M, 75, new Color32(52, 211, 153, 255), false,
+        AddShape(_normalShapeLibrary, BlockShapeId.Z4_M, 75, BlockColor4, false, z4MCellSprite,
             new Vector2Int(1, 0), new Vector2Int(2, 0), new Vector2Int(0, 1), new Vector2Int(1, 1));
 
-        AddShape(_normalShapeLibrary, BlockShapeId.H5, 55, new Color32(129, 140, 248, 255), false,
+        AddShape(_normalShapeLibrary, BlockShapeId.H5, 55, BlockColor5, false, h5CellSprite,
             new Vector2Int(0, 0), new Vector2Int(1, 0), new Vector2Int(2, 0), new Vector2Int(3, 0), new Vector2Int(4, 0));
 
-        AddShape(_normalShapeLibrary, BlockShapeId.P5, 70, new Color32(192, 132, 252, 255), false,
+        AddShape(_normalShapeLibrary, BlockShapeId.P5, 70, BlockColor1, false, p5CellSprite,
             new Vector2Int(0, 0), new Vector2Int(1, 0), new Vector2Int(0, 1), new Vector2Int(1, 1), new Vector2Int(0, 2));
 
-        AddShape(_normalShapeLibrary, BlockShapeId.T5, 70, new Color32(244, 114, 182, 255), false,
+        AddShape(_normalShapeLibrary, BlockShapeId.T5, 70, BlockColor2, false, t5CellSprite,
             new Vector2Int(0, 0), new Vector2Int(1, 0), new Vector2Int(2, 0), new Vector2Int(1, 1), new Vector2Int(1, 2));
 
-        AddShape(_curseShapeLibrary, BlockShapeId.CurseDiag3, 100, new Color(0.85f, 0.35f, 0.95f), true,
+        AddShape(_normalShapeLibrary, BlockShapeId.L5, 65, BlockColor3, false, l5CellSprite,
+            new Vector2Int(0, 0),
+            new Vector2Int(0, 1),
+            new Vector2Int(0, 2),
+            new Vector2Int(1, 0),
+            new Vector2Int(2, 0));
+
+        AddShape(_curseShapeLibrary, BlockShapeId.CurseDiag3, 100, new Color32(170, 90, 220, 255), true, curseDiag3CellSprite,
             new Vector2Int(0, 0), new Vector2Int(1, 1), new Vector2Int(2, 2));
 
-        AddShape(_curseShapeLibrary, BlockShapeId.CurseSplit3, 100, new Color(0.85f, 0.35f, 0.95f), true,
+        AddShape(_curseShapeLibrary, BlockShapeId.CurseSplit3, 100, new Color32(170, 90, 220, 255), true, curseSplit3CellSprite,
             new Vector2Int(0, 0), new Vector2Int(2, 0), new Vector2Int(1, 2));
 
-        AddShape(_curseShapeLibrary, BlockShapeId.CurseDiag4, 100, new Color(0.85f, 0.35f, 0.95f), true,
+        AddShape(_curseShapeLibrary, BlockShapeId.CurseDiag4, 100, new Color32(170, 90, 220, 255), true, curseDiag4CellSprite,
             new Vector2Int(0, 0), new Vector2Int(1, 1), new Vector2Int(2, 2), new Vector2Int(3, 3));
 
-        AddShape(_curseShapeLibrary, BlockShapeId.CurseSplit4, 100, new Color(0.85f, 0.35f, 0.95f), true,
+        AddShape(_curseShapeLibrary, BlockShapeId.CurseSplit4, 100, new Color32(170, 90, 220, 255), true, curseSplit4CellSprite,
             new Vector2Int(0, 0), new Vector2Int(2, 0), new Vector2Int(0, 2), new Vector2Int(2, 2));
     }
 
-    private void AddShape(List<BlockShape> target, BlockShapeId shapeId, int weight, Color color, bool isCurse, params Vector2Int[] cells)
+    private void AddShape(List<BlockShape> target, BlockShapeId shapeId, int weight, Color color, bool isCurse, Sprite cellSprite, params Vector2Int[] cells)
     {
-        target.Add(new BlockShape(shapeId, weight, color, new List<Vector2Int>(cells), isCurse));
+        target.Add(new BlockShape(shapeId, weight, color, new List<Vector2Int>(cells), isCurse, cellSprite));
     }
 
     private void SanitizeLoadout()
@@ -1097,7 +1137,8 @@ public class BattleManager : MonoBehaviour
             rotation = rotation,
             color = shape.color,
             cells = rotated,
-            isCurse = shape.isCurse
+            isCurse = shape.isCurse,
+            cellSprite = shape.cellSprite
         };
     }
 
@@ -1176,11 +1217,13 @@ public class BattleManager : MonoBehaviour
         if (_dragPreviewRoot == null)
             return;
 
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(_dragLayer, eventData.position, eventData.pressEventCamera, out Vector2 local))
+        Vector2 adjustedScreenPos = eventData.position + dragOffset;
+
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(_dragLayer, adjustedScreenPos, eventData.pressEventCamera, out Vector2 local))
             _dragPreviewRoot.anchoredPosition = local;
 
         BlockInstance block = _currentBlocks[_dragSlotIndex];
-        _dragHasAnchor = TryGetBoardAnchor(eventData.position, eventData.pressEventCamera, block, out _dragAnchor);
+        _dragHasAnchor = TryGetBoardAnchor(adjustedScreenPos, eventData.pressEventCamera, block, out _dragAnchor);
         _dragCanPlace = _dragHasAnchor && CanPlaceBlock(block, _dragAnchor.x, _dragAnchor.y);
     }
 
@@ -1243,6 +1286,7 @@ public class BattleManager : MonoBehaviour
             _myOccupied[x, y] = true;
             _myObstacle[x, y] = false;
             _myColors[x, y] = block.color;
+            _myBlockSprites[x, y] = block.cellSprite;
         }
 
         int clearCount = ClearCompletedLinesAndCollectItems();
@@ -1339,6 +1383,7 @@ public class BattleManager : MonoBehaviour
         _myOccupied[x, y] = false;
         _myObstacle[x, y] = false;
         _myColors[x, y] = Color.clear;
+        _myBlockSprites[x, y] = null;
     }
 
     private int GetScore(int clearCount)
@@ -1958,11 +2003,21 @@ public class BattleManager : MonoBehaviour
                     continue;
 
                 Color baseColor = BoardBaseColor;
+                Sprite blockSprite = null;
+                bool showBlockSprite = false;
                 Sprite overlaySprite = null;
                 bool showOverlay = false;
 
                 if (_myOccupied[x, y])
+                {
                     baseColor = _myObstacle[x, y] ? ObstacleColor : _myColors[x, y];
+
+                    if (!_myObstacle[x, y])
+                    {
+                        blockSprite = _myBlockSprites[x, y];
+                        showBlockSprite = blockSprite != null;
+                    }
+                }
 
                 if (_myObstacle[x, y])
                 {
@@ -1975,7 +2030,7 @@ public class BattleManager : MonoBehaviour
                     showOverlay = overlaySprite != null;
                 }
 
-                _myBoardCells[x, y].SetVisual(baseColor, overlaySprite, showOverlay);
+                _myBoardCells[x, y].SetVisual(baseColor, blockSprite, showBlockSprite, overlaySprite, showOverlay);
             }
         }
 
@@ -2010,7 +2065,7 @@ public class BattleManager : MonoBehaviour
                     showOverlay = overlaySprite != null;
                 }
 
-                _myBoardCells[x, y].SetVisual(previewColor, overlaySprite, showOverlay);
+                _myBoardCells[x, y].SetVisual(previewColor, null, false, overlaySprite, showOverlay);
             }
         }
 
@@ -2108,7 +2163,8 @@ public class BattleManager : MonoBehaviour
                 new Vector2(
                     startX + (p.x * (slotPreviewCellSize + slotPreviewSpacing)),
                     startY - (p.y * (slotPreviewCellSize + slotPreviewSpacing))),
-                block.color);
+                block.color,
+                block.cellSprite);
         }
     }
 
@@ -2143,7 +2199,8 @@ public class BattleManager : MonoBehaviour
                 new Vector2(
                     startX + (p.x * (dragPreviewCellSize + dragPreviewSpacing)),
                     startY - (p.y * (dragPreviewCellSize + dragPreviewSpacing))),
-                new Color(block.color.r, block.color.g, block.color.b, 0.85f));
+                new Color(block.color.r, block.color.g, block.color.b, 0.85f),
+                block.cellSprite);
         }
     }
 
@@ -2262,7 +2319,7 @@ public class BattleManager : MonoBehaviour
         return go;
     }
 
-    private void CreatePreviewCell(RectTransform parent, Vector2 size, Vector2 anchoredPosition, Color color)
+    private void CreatePreviewCell(RectTransform parent, Vector2 size, Vector2 anchoredPosition, Color color, Sprite sprite)
     {
         GameObject go;
 
@@ -2285,8 +2342,10 @@ public class BattleManager : MonoBehaviour
         rt.anchoredPosition = anchoredPosition;
 
         Image img = GetOrAdd<Image>(go);
-        img.color = color;
+        img.color = Color.white;
+        img.sprite = sprite;
         img.raycastTarget = false;
+        img.preserveAspect = false;
     }
 
     private static T GetOrAdd<T>(GameObject go) where T : Component
