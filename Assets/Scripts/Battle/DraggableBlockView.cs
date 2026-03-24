@@ -17,7 +17,7 @@ public class DraggableBlockView : MonoBehaviour, IBeginDragHandler, IDragHandler
     private Vector2 _lastDragScreenPos;
     private bool _hasLastDragScreenPos;
 
-    [SerializeField] private float dragUpdateMinDistance = 6f;
+    [SerializeField] private float dragUpdateMinDistance = 10f;
 
     private void Awake()
     {

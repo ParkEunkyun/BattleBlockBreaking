@@ -316,6 +316,12 @@ public class BattleManager : MonoBehaviour
     private bool _roundReadySendIssued;
     private bool _roundSyncAdvanceQueued;
 
+    [SerializeField] private bool _networkGameStarted;
+    [SerializeField] private bool _isHostPlayer;
+    [SerializeField] private int _networkSeed;
+    private bool IsRankedBattle => BattleMatchSession.Mode == GameMode.Ranked;
+
+
     private void Awake()
     {
         Transform safeArea = FindSafeArea();
@@ -340,16 +346,27 @@ public class BattleManager : MonoBehaviour
         HideResultPhase();
         RefreshOwnedItemUI();
         RefreshTopHud();
-        StartRound();
-
 
         if (roundEndButton != null)
             roundEndButton.gameObject.SetActive(false);
+
+        // 랭크전은 네트워크 GAME_START 수신 전까지 라운드를 시작하지 않음
+        if (IsRankedBattle)
+        {
+            _networkGameStarted = false;
+            return;
+        }
+
+        StartRound();
     }
 
     private void Update()
     {
+        if (IsRankedBattle && !_networkGameStarted)
+            return;
+
         _phaseTimer -= Time.deltaTime;
+
         if (_phaseTimer < 0f)
             _phaseTimer = 0f;
 
@@ -358,9 +375,11 @@ public class BattleManager : MonoBehaviour
             case BattlePhase.Defense:
                 UpdateDefensePhase();
                 break;
+
             case BattlePhase.Play:
                 UpdatePlayPhase();
                 break;
+
             case BattlePhase.Resolve:
                 UpdateResolvePhase();
                 break;
@@ -1179,6 +1198,9 @@ public class BattleManager : MonoBehaviour
 
     public void OnBeginDragSlot(int slotIndex, PointerEventData eventData)
     {
+        if (IsRankedBattle && !_networkGameStarted)
+            return;
+
         if (_localRoundReady)
             return;
 
@@ -1205,6 +1227,9 @@ public class BattleManager : MonoBehaviour
 
     public void OnDragSlot(int slotIndex, PointerEventData eventData)
     {
+        if (IsRankedBattle && !_networkGameStarted)
+            return;
+
         if (_dragSlotIndex != slotIndex)
             return;
 
@@ -1214,6 +1239,9 @@ public class BattleManager : MonoBehaviour
 
     public void OnEndDragSlot(int slotIndex, PointerEventData eventData)
     {
+        if (IsRankedBattle && !_networkGameStarted)
+            return;
+
         if (_dragSlotIndex != slotIndex)
             return;
 
@@ -2559,6 +2587,12 @@ public class BattleManager : MonoBehaviour
 
     private void RequestRoundEnd()
     {
+        if (IsRankedBattle && !_networkGameStarted)
+            return;
+
+        if (_waitingForOpponentRoundReady || _roundSyncAdvanceQueued || _roundReadySendIssued)
+            return;
+
         if (_phase != BattlePhase.Play)
             return;
 
@@ -2800,11 +2834,6 @@ public class BattleManager : MonoBehaviour
     #endregion
 
     #region Match System
-
-    [SerializeField] private int _networkSeed;
-    [SerializeField] private bool _networkGameStarted;
-    [SerializeField] private bool _isHostPlayer;
-
     public bool IsNetworkGameStarted => _networkGameStarted;
     public int NetworkSeed => _networkSeed;
     public bool IsHostPlayer => _isHostPlayer;
@@ -2823,18 +2852,17 @@ public class BattleManager : MonoBehaviour
     public void OnNetworkGameStart(int seed, bool isHost)
     {
         _networkSeed = seed;
-        _networkGameStarted = true;
         _isHostPlayer = isHost;
+        _networkGameStarted = true;
 
         ResetNetworkRoundSyncState();
 
+        if (roundEndButton != null)
+            roundEndButton.gameObject.SetActive(true);
+
         Debug.Log($"[BattleManager] OnNetworkGameStart / seed={seed} / isHost={isHost}");
 
-        // TODO:
-        // 1) 이 seed 기준으로 블럭 시퀀스/랜덤값 고정
-        // 2) 현재 배틀 시작 진입 메서드가 따로 있으면 여기서 호출
-        // 예: BeginFirstRound(), StartBattleLoop(), SpawnInitialBlocks() 등
-
+        StartRound();
     }
 
     private void TryResolveRoundEndSync()

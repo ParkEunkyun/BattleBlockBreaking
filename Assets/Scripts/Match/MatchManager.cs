@@ -451,6 +451,10 @@ public class MatchManager : MonoBehaviour
     {
         try
         {
+            // 배틀씬에서는 BattleNetDriver만 Poll 하게 함
+            _pollEnabled = false;
+            enabled = false;
+
             Log($"배틀씬 진입 -> {battleSceneName}");
             SceneManager.LoadScene(battleSceneName);
         }

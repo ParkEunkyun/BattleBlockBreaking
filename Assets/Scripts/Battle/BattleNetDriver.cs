@@ -195,19 +195,15 @@ public class BattleNetDriver : MonoBehaviour
             _joiningRoom = false;
             _joinedRoom = true;
 
-            object errInfo = ReadMember(args, "ErrInfo");
-            object gameRecordsObj = ReadMember(args, "GameRecords");
+            // 문서상 OnSessionListInServer는 게임방 입장 성공 시에만 호출됨.
+            // 그래서 여기서는 실패 판정하지 말고, GameRecords 파싱에만 집중.
+            int count = args.GameRecords != null ? args.GameRecords.Count : 0;
 
-            bool success = IsSuccessErrInfo(errInfo);
-            int count = GetCountSafe(gameRecordsObj);
+            Log($"OnSessionListInServer / joinedRoom=true / count={count}");
 
-            Log($"OnSessionListInServer / success={success} / count={count}");
+            TryResolveSessionsFromGameRecords(args.GameRecords);
 
-            if (!success)
-            {
-                LogError("게임방 입장 후 세션 리스트 수신 실패",
-                    $"{ReadMemberAsString(errInfo, "Category")} / {ReadMemberAsString(errInfo, "Reason")}");
-            }
+            Log($"SessionResolved / my={BattleMatchSession.MySessionId} / opp={BattleMatchSession.OpponentSessionId} / isHost={BattleMatchSession.IsHost}");
         };
 
         Backend.Match.OnMatchInGameStart = () =>
@@ -708,5 +704,144 @@ public class BattleNetDriver : MonoBehaviour
     private void LogError(string title, string detail = "")
     {
         Debug.LogError($"[BattleNetDriver] {title}" + (string.IsNullOrWhiteSpace(detail) ? "" : $" / {detail}"));
+    }
+
+    private void TryResolveSessionsFromGameRecords(System.Collections.IList gameRecords)
+    {
+        if (gameRecords == null || gameRecords.Count == 0)
+            return;
+
+        string myNick = BattleMatchSession.MyNickname;
+        string opponentNick = BattleMatchSession.OpponentNickname;
+
+        string mySession = BattleMatchSession.MySessionId;
+        string oppSession = BattleMatchSession.OpponentSessionId;
+
+        for (int i = 0; i < gameRecords.Count; i++)
+        {
+            object record = gameRecords[i];
+            if (record == null)
+                continue;
+
+            string sessionId = ExtractSessionIdFromGameRecord(record);
+            string nick = ExtractNicknameFromGameRecord(record);
+
+            if (string.IsNullOrWhiteSpace(sessionId))
+                continue;
+
+            if (!string.IsNullOrWhiteSpace(myNick) && nick == myNick)
+            {
+                mySession = sessionId;
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(opponentNick) && nick == opponentNick)
+            {
+                oppSession = sessionId;
+                continue;
+            }
+        }
+
+        // 닉네임 기준으로 못 찾았으면 2인 방 전제 fallback
+        if (string.IsNullOrWhiteSpace(mySession) || string.IsNullOrWhiteSpace(oppSession))
+        {
+            for (int i = 0; i < gameRecords.Count; i++)
+            {
+                object record = gameRecords[i];
+                if (record == null)
+                    continue;
+
+                string sessionId = ExtractSessionIdFromGameRecord(record);
+                if (string.IsNullOrWhiteSpace(sessionId))
+                    continue;
+
+                if (string.IsNullOrWhiteSpace(mySession))
+                {
+                    mySession = sessionId;
+                }
+                else if (sessionId != mySession && string.IsNullOrWhiteSpace(oppSession))
+                {
+                    oppSession = sessionId;
+                }
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(mySession))
+            BattleMatchSession.MySessionId = mySession;
+
+        if (!string.IsNullOrWhiteSpace(oppSession))
+            BattleMatchSession.OpponentSessionId = oppSession;
+
+        RefreshHostAuthority();
+    }
+
+    private string ExtractSessionIdFromGameRecord(object record)
+    {
+        string[] directCandidates =
+        {
+        "SessionId",
+        "m_sessionId",
+        "sessionId",
+        "id"
+    };
+
+        for (int i = 0; i < directCandidates.Length; i++)
+        {
+            string value = ReadMemberAsString(record, directCandidates[i]);
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        object sessionInfo = ReadMember(record, "Session");
+        if (sessionInfo == null)
+            sessionInfo = ReadMember(record, "SessionInfo");
+
+        if (sessionInfo != null)
+            return ExtractSessionId(sessionInfo);
+
+        return string.Empty;
+    }
+
+    private string ExtractNicknameFromGameRecord(object record)
+    {
+        string[] directCandidates =
+        {
+        "NickName",
+        "Nickname",
+        "nickName",
+        "m_nickName",
+        "gamerNickName"
+    };
+
+        for (int i = 0; i < directCandidates.Length; i++)
+        {
+            string value = ReadMemberAsString(record, directCandidates[i]);
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        object sessionInfo = ReadMember(record, "Session");
+        if (sessionInfo == null)
+            sessionInfo = ReadMember(record, "SessionInfo");
+
+        if (sessionInfo != null)
+        {
+            string[] sessionCandidates =
+            {
+            "NickName",
+            "Nickname",
+            "nickName",
+            "m_nickName"
+        };
+
+            for (int i = 0; i < sessionCandidates.Length; i++)
+            {
+                string value = ReadMemberAsString(sessionInfo, sessionCandidates[i]);
+                if (!string.IsNullOrWhiteSpace(value))
+                    return value;
+            }
+        }
+
+        return string.Empty;
     }
 }
