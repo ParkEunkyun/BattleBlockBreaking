@@ -213,6 +213,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   backgroundImage: {fileID: 0}
   sealOverlayImage: {fileID: 0}
+  dragUpdateMinDistance: 6
 --- !u!114 &13834785
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3714,8 +3715,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: New Text
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 3c47d6f2f47ba0e4c83d5fec9b554b99, type: 2}
+  m_sharedMaterial: {fileID: 5857812337989035982, guid: 3c47d6f2f47ba0e4c83d5fec9b554b99, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -4366,6 +4367,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   backgroundImage: {fileID: 0}
   sealOverlayImage: {fileID: 0}
+  dragUpdateMinDistance: 6
 --- !u!114 &1168679493
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5282,6 +5284,7 @@ GameObject:
   - component: {fileID: 1349247552}
   - component: {fileID: 1349247551}
   - component: {fileID: 1349247550}
+  - component: {fileID: 1349247553}
   m_Layer: 0
   m_Name: EventSystem
   m_TagString: Untagged
@@ -5339,6 +5342,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1847895292}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1349247553
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1349247549}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 53ebf3d67a12c0f44a22c31331e8afc8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mobileDragThreshold: 4
+  desktopDragThreshold: 8
 --- !u!1 &1350544192
 GameObject:
   m_ObjectHideFlags: 0
@@ -5955,6 +5972,7 @@ GameObject:
   - component: {fileID: 1524103973}
   - component: {fileID: 1524103972}
   - component: {fileID: 1524103974}
+  - component: {fileID: 1524103975}
   m_Layer: 0
   m_Name: BattleManager
   m_TagString: Untagged
@@ -6063,6 +6081,9 @@ MonoBehaviour:
   curseSplit3CellSprite: {fileID: -1884510018, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
   curseDiag4CellSprite: {fileID: 1692553810, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
   curseSplit4CellSprite: {fileID: 1467438889, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  _networkSeed: 0
+  _networkGameStarted: 0
+  _isHostPlayer: 0
 --- !u!4 &1524103973
 Transform:
   m_ObjectHideFlags: 0
@@ -6091,6 +6112,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lobbySceneName: Scene_Lobby
+--- !u!114 &1524103975
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1524103971}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa71f418122c0994f820eb65cf6dd02f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  battleManager: {fileID: 1524103972}
+  autoBeginOnStart: 1
+  verboseLog: 1
 --- !u!1 &1560583384
 GameObject:
   m_ObjectHideFlags: 0
@@ -8146,6 +8182,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   backgroundImage: {fileID: 0}
   sealOverlayImage: {fileID: 0}
+  dragUpdateMinDistance: 6
 --- !u!114 &1852443909
 MonoBehaviour:
   m_ObjectHideFlags: 0

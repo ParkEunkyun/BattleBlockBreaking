@@ -36,6 +36,7 @@ public class LobbyManager : MonoBehaviour
 
     [Header("Scene")]
     [SerializeField] private string battleSceneName = "Scene_Battle";
+    [SerializeField] private string normalSceneName = "Scene_Normal";
 
     [Header("Profile / Lobby Text")]
     [SerializeField] private string nickname = "은균";
@@ -88,7 +89,7 @@ public class LobbyManager : MonoBehaviour
     [SerializeField] private List<SupportVisualEntry> supportVisualEntries = new List<SupportVisualEntry>();
 
     [Header("Mode")]
-    [SerializeField] private bool startAsRankedMode = true;
+    [SerializeField] private GameMode startGameMode = GameMode.Ranked;
 
     private const string PrefAttack0 = "BBB_LOBBY_ATTACK_0";
     private const string PrefAttack1 = "BBB_LOBBY_ATTACK_1";
@@ -106,7 +107,7 @@ public class LobbyManager : MonoBehaviour
     private readonly List<BattleManager.AttackItemId> _editingAttackLoadout = new List<BattleManager.AttackItemId>(3);
     private readonly List<BattleManager.SupportItemId> _editingSupportLoadout = new List<BattleManager.SupportItemId>(2);
 
-    [SerializeField] private bool _isRankedMode;
+    private GameMode _gameMode = GameMode.Ranked;
     private Coroutine _matchRoutine;
 
     private TMP_Text _nicknameText;
@@ -144,14 +145,14 @@ public class LobbyManager : MonoBehaviour
     private readonly ChoiceButtonRefs[] _attackChoiceButtons = new ChoiceButtonRefs[6];
     private readonly ChoiceButtonRefs[] _supportChoiceButtons = new ChoiceButtonRefs[5];
 
-    private static readonly Color32 ModeSelectedColor = new Color32(255, 120, 80, 255);
-    private static readonly Color32 ModeUnselectedColor = new Color32(80, 90, 120, 255);
     private static readonly Color32 ChoiceSelectedColor = new Color32(255, 214, 120, 255);
     private static readonly Color32 ChoiceUnselectedColor = new Color32(255, 255, 255, 255);
 
     [SerializeField] private Sprite selectSprite;
     [SerializeField] private Sprite normalSprite;
 
+    private bool IsRankedMode => _gameMode == GameMode.Ranked;
+    private bool IsNormalMode => _gameMode == GameMode.Normal;
 
     private void Awake()
     {
@@ -284,7 +285,7 @@ public class LobbyManager : MonoBehaviour
             _rankedModeButton.onClick.RemoveAllListeners();
             _rankedModeButton.onClick.AddListener(() =>
             {
-                _isRankedMode = true;
+                _gameMode = GameMode.Ranked;
                 RefreshModeUI();
             });
         }
@@ -294,7 +295,7 @@ public class LobbyManager : MonoBehaviour
             _normalModeButton.onClick.RemoveAllListeners();
             _normalModeButton.onClick.AddListener(() =>
             {
-                _isRankedMode = false;
+                _gameMode = GameMode.Normal;
                 RefreshModeUI();
             });
         }
@@ -417,9 +418,17 @@ public class LobbyManager : MonoBehaviour
                 _selectedSupportLoadout.Add(defaultSupportLoadout[i]);
         }
 
-        _isRankedMode = PlayerPrefs.HasKey(PrefMode)
-            ? PlayerPrefs.GetInt(PrefMode) == 1
-            : startAsRankedMode;
+        if (PlayerPrefs.HasKey(PrefMode))
+        {
+            _gameMode = (GameMode)PlayerPrefs.GetInt(PrefMode);
+        }
+        else
+        {
+            _gameMode = startGameMode;
+        }
+
+        if (_gameMode != GameMode.Ranked && _gameMode != GameMode.Normal)
+            _gameMode = startGameMode;
 
         EnsureLoadoutValidFallback();
     }
@@ -460,7 +469,7 @@ public class LobbyManager : MonoBehaviour
             PlayerPrefs.SetInt(PrefSupport1, (int)_selectedSupportLoadout[1]);
         }
 
-        PlayerPrefs.SetInt(PrefMode, _isRankedMode ? 1 : 0);
+        PlayerPrefs.SetInt(PrefMode, (int)_gameMode);
         PlayerPrefs.Save();
     }
 
@@ -477,8 +486,8 @@ public class LobbyManager : MonoBehaviour
 
     private void RefreshModeUI()
     {
-        SetModeButtonVisual(_rankedModeButton, _isRankedMode);
-        SetModeButtonVisual(_normalModeButton, !_isRankedMode);
+        SetModeButtonVisual(_rankedModeButton, IsRankedMode);
+        SetModeButtonVisual(_normalModeButton, IsNormalMode);
     }
 
     private void SetModeButtonVisual(Button button, bool selected)
@@ -488,16 +497,8 @@ public class LobbyManager : MonoBehaviour
 
         Image bg = button.GetComponent<Image>();
         if (bg != null)
-            bg.sprite = selected ? selectSprite : normalSprite;       
-        
-        /*
-        Image bg = button.GetComponent<Image>();
-        if (bg != null)
-            bg.color = selected ? ModeSelectedColor : ModeUnselectedColor;
-        */
+            bg.sprite = selected ? selectSprite : normalSprite;
     }
-
-
 
     private void RefreshPreviewUI()
     {
@@ -710,19 +711,60 @@ public class LobbyManager : MonoBehaviour
             return;
         }
 
-        BattleLoadoutSession.SetLoadout(_selectedAttackLoadout, _selectedSupportLoadout, _isRankedMode);
-        ShowMatchPopup(_isRankedMode ? "랭크전 준비중..." : "일반전 준비중...");
+        BattleLoadoutSession.SetLoadout(_selectedAttackLoadout, _selectedSupportLoadout, _gameMode);
+        SaveLoadout();
 
         if (_matchRoutine != null)
+        {
             StopCoroutine(_matchRoutine);
+            _matchRoutine = null;
+        }
 
-        _matchRoutine = StartCoroutine(CoEnterBattleScene());
+        switch (_gameMode)
+        {
+            case GameMode.Ranked:
+                {
+                    ShowMatchPopup("랭크전 매칭중...");
+
+                    if (MatchManager.I == null)
+                    {
+                        Debug.LogError("[LobbyManager] MatchManager가 씬에 없습니다.");
+                        HideMatchPopup();
+                        return;
+                    }
+
+                    MatchManager.I.StartRankedMatch();
+                    break;
+                }
+
+            case GameMode.Normal:
+                {
+                    ShowMatchPopup("노말 모드 준비중...");
+                    _matchRoutine = StartCoroutine(CoEnterScene(normalSceneName));
+                    break;
+                }
+
+            default:
+                {
+                    Debug.LogError("[LobbyManager] 지원하지 않는 GameMode 입니다.");
+                    HideMatchPopup();
+                    break;
+                }
+        }
     }
 
-    private IEnumerator CoEnterBattleScene()
+    private IEnumerator CoEnterScene(string sceneName)
     {
         yield return new WaitForSecondsRealtime(0.35f);
-        SceneManager.LoadScene(battleSceneName);
+
+        if (string.IsNullOrWhiteSpace(sceneName))
+        {
+            Debug.LogError("[LobbyManager] sceneName 이 비어있음");
+            HideMatchPopup();
+            yield break;
+        }
+
+        SceneManager.LoadScene(sceneName);
     }
 
     private void CancelMatching()
@@ -731,6 +773,11 @@ public class LobbyManager : MonoBehaviour
         {
             StopCoroutine(_matchRoutine);
             _matchRoutine = null;
+        }
+
+        if (IsRankedMode && MatchManager.I != null)
+        {
+            MatchManager.I.CancelRankedMatch();
         }
 
         HideMatchPopup();

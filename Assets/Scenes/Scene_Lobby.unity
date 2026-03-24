@@ -301,6 +301,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   battleSceneName: Scene_Battle
+  normalSceneName: Scene_Normal
   nickname: "\uC740\uADE0"
   tierLabel: Bronze III
   gold: 12450
@@ -313,8 +314,7 @@ MonoBehaviour:
   allSupportOptions: 0100000002000000030000000400000005000000
   attackVisualEntries: []
   supportVisualEntries: []
-  startAsRankedMode: 1
-  _isRankedMode: 0
+  startGameMode: 1
   selectSprite: {fileID: 1471102179, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
   normalSprite: {fileID: 1414488829, guid: 8bc41ab15028b9a40bad8236b724611d, type: 3}
 --- !u!114 &59586516
@@ -329,8 +329,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ba8d274185fa41749a547042354ae324, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  battleSceneName: Scene_Battle
-  isRankedMode: 1
+  normalSceneName: Scene_Normal
+  gameMode: 1
   attack1: 1
   attack2: 2
   attack3: 6
@@ -12144,6 +12144,58 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1399014117}
   m_CullTransparentMesh: 1
+--- !u!1 &1433030610
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1433030611}
+  - component: {fileID: 1433030612}
+  m_Layer: 0
+  m_Name: MatchManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1433030611
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1433030610}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 207.279, y: 1867.0388, z: -21.756437}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1433030612
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1433030610}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f622726cb67cda4db1f086e612a5958, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  battleSceneName: Scene_Battle
+  dontDestroyOnLoad: 1
+  rankedMatchCardInDate: 2026-03-10T13:52:28.636Z
+  autoResolveMatchCardInDate: 0
+  rankedMatchTitleKeyword: BBB_RANK_1V1
+  rankedMatchTypeName: MMR
+  rankedMatchModeTypeName: OneOnOne
+  verboseLog: 1
 --- !u!1 &1443609992
 GameObject:
   m_ObjectHideFlags: 0
@@ -20738,4 +20790,5 @@ SceneRoots:
   - {fileID: 844429326}
   - {fileID: 1231071948}
   - {fileID: 59586514}
+  - {fileID: 1433030611}
   - {fileID: 1787015763}

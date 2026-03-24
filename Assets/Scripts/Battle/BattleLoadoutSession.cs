@@ -4,12 +4,17 @@ public static class BattleLoadoutSession
 {
     public static readonly List<BattleManager.AttackItemId> SelectedAttackIds = new List<BattleManager.AttackItemId>();
     public static readonly List<BattleManager.SupportItemId> SelectedSupportIds = new List<BattleManager.SupportItemId>();
-    public static bool IsRankedMode = true;
+
+    public static GameMode Mode = GameMode.Ranked;
+
+    // 기존 코드 호환용
+    public static bool IsRankedMode => Mode == GameMode.Ranked;
+    public static bool IsNormalMode => Mode == GameMode.Normal;
 
     public static void SetLoadout(
         IList<BattleManager.AttackItemId> attackIds,
         IList<BattleManager.SupportItemId> supportIds,
-        bool isRankedMode)
+        GameMode mode)
     {
         SelectedAttackIds.Clear();
         SelectedSupportIds.Clear();
@@ -26,7 +31,7 @@ public static class BattleLoadoutSession
                 SelectedSupportIds.Add(supportIds[i]);
         }
 
-        IsRankedMode = isRankedMode;
+        Mode = mode;
     }
 
     public static bool HasValidLoadout()
@@ -38,6 +43,6 @@ public static class BattleLoadoutSession
     {
         SelectedAttackIds.Clear();
         SelectedSupportIds.Clear();
-        IsRankedMode = true;
+        Mode = GameMode.Ranked;
     }
 }

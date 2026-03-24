@@ -312,6 +312,10 @@ public class BattleManager : MonoBehaviour
     private bool _opponentRoundReady;
     private bool _waitingForOpponentRoundReady;
 
+    private BattleNetDriver _battleNetDriver;
+    private bool _roundReadySendIssued;
+    private bool _roundSyncAdvanceQueued;
+
     private void Awake()
     {
         Transform safeArea = FindSafeArea();
@@ -322,6 +326,8 @@ public class BattleManager : MonoBehaviour
         BuildShapeLibrary();
         SanitizeLoadout();
         ApplyLoadoutFromSession();
+        ApplyMatchSession();
+        _battleNetDriver = GetComponent<BattleNetDriver>();
         BuildItemSpriteMap();
         BindButtons();
     }
@@ -887,6 +893,7 @@ public class BattleManager : MonoBehaviour
 
     private void StartRound()
     {
+        ResetNetworkRoundSyncState();
         RefreshRoundEndButtonUI();
         HideResultPhase();
 
@@ -917,6 +924,7 @@ public class BattleManager : MonoBehaviour
 
     private void BeginPlayableRound()
     {
+        ResetNetworkRoundSyncState();
         GiveThreeBlocks();
         TrySpawnRandomBoardItem();
         DrawAllBlockPreviews();
@@ -929,6 +937,7 @@ public class BattleManager : MonoBehaviour
 
     private void AdvanceToNextRound()
     {
+        ResetNetworkRoundSyncState();
         ExpireRoundStatuses();
         _round++;
         StartRound();
@@ -936,6 +945,7 @@ public class BattleManager : MonoBehaviour
 
     private void ExpireRoundStatuses()
     {
+        ResetNetworkRoundSyncState();
         _itemUseBlockedThisRound = false;
         _sealedSlotIndex = -1;
         _forceCurseBlockNextRound = false;
@@ -954,6 +964,7 @@ public class BattleManager : MonoBehaviour
 
     private void EnterResolvePhase()
     {
+        ResetNetworkRoundSyncState();
         _phase = BattlePhase.Resolve;
         _phaseTimer = resolvePhaseSeconds;
         HideDefensePhase();
@@ -994,6 +1005,11 @@ public class BattleManager : MonoBehaviour
 
     private void UpdatePlayPhase()
     {
+        if (_waitingForOpponentRoundReady || _roundSyncAdvanceQueued)
+        {
+            return;
+        }
+
         if (_timerText != null)
             _timerText.text = $"{Mathf.CeilToInt(_phaseTimer)}";
 
@@ -2546,6 +2562,12 @@ public class BattleManager : MonoBehaviour
         if (_phase != BattlePhase.Play)
             return;
 
+        if (_roundReadySendIssued)
+        {
+            Debug.Log("[BBB] RequestRoundEnd ignored - already sent this round");
+            return;
+        }
+
         if (_localRoundReady)
             return;
 
@@ -2571,9 +2593,17 @@ public class BattleManager : MonoBehaviour
 
     public void OnOpponentRoundReadyReceived()
     {
+        if (_opponentRoundReady)
+        {
+            Debug.Log("[BBB] Opponent ROUND_READY already received");
+            return;
+        }
+
         _opponentRoundReady = true;
-        RefreshRoundEndButtonUI();
-        TryEnterResolveWhenBothReady();
+
+        Debug.Log("[BBB] Opponent ROUND_READY received");
+
+        TryResolveRoundEndSync();
     }
 
     private void TryEnterResolveWhenBothReady()
@@ -2590,14 +2620,28 @@ public class BattleManager : MonoBehaviour
 
     private void SendRoundEndReadyToOpponent()
     {
+        if (_roundReadySendIssued)
+        {
+            Debug.Log("[BBB] SendRoundEndReadyToOpponent ignored - already sent");
+            return;
+        }
+
+        _roundReadySendIssued = true;
+        _localRoundReady = true;
+        _waitingForOpponentRoundReady = true;
+
         Debug.Log("[BBB] SendRoundEndReadyToOpponent");
 
-        // TODO:
-        // 실제 BACKND 대전 연동부에서 여기서 상대에게 "내 라운드 종료" 패킷 전송
-        // 상대쪽은 패킷 수신 시 BattleManager.OnOpponentRoundReadyReceived() 호출
+        if (_battleNetDriver != null)
+        {
+            _battleNetDriver.SendRoundReady();
+        }
+        else
+        {
+            Debug.LogError("[BBB] BattleNetDriver is null");
+        }
 
-        if (debugAutoOpponentRoundReady)
-            StartCoroutine(CoDebugAutoOpponentRoundReady());
+        TryResolveRoundEndSync();
     }
 
     private IEnumerator CoDebugAutoOpponentRoundReady()
@@ -2742,6 +2786,130 @@ public class BattleManager : MonoBehaviour
         opponentScore = score;
     }
 
+    private void ApplyMatchSession()
+    {
+        if (BattleMatchSession.Mode == GameMode.None)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(BattleMatchSession.MyNickname))
+            myNickname = BattleMatchSession.MyNickname;
+
+        if (!string.IsNullOrWhiteSpace(BattleMatchSession.OpponentNickname))
+            opponentNickname = BattleMatchSession.OpponentNickname;
+    }
     #endregion
 
+    #region Match System
+
+    [SerializeField] private int _networkSeed;
+    [SerializeField] private bool _networkGameStarted;
+    [SerializeField] private bool _isHostPlayer;
+
+    public bool IsNetworkGameStarted => _networkGameStarted;
+    public int NetworkSeed => _networkSeed;
+    public bool IsHostPlayer => _isHostPlayer;
+
+    public void SetOpponentNicknameExternal(string nicknameValue)
+    {
+        if (string.IsNullOrWhiteSpace(nicknameValue))
+            return;
+
+        opponentNickname = nicknameValue;
+
+        if (_opponentNameText != null)
+            _opponentNameText.text = opponentNickname;
+    }
+
+    public void OnNetworkGameStart(int seed, bool isHost)
+    {
+        _networkSeed = seed;
+        _networkGameStarted = true;
+        _isHostPlayer = isHost;
+
+        ResetNetworkRoundSyncState();
+
+        Debug.Log($"[BattleManager] OnNetworkGameStart / seed={seed} / isHost={isHost}");
+
+        // TODO:
+        // 1) 이 seed 기준으로 블럭 시퀀스/랜덤값 고정
+        // 2) 현재 배틀 시작 진입 메서드가 따로 있으면 여기서 호출
+        // 예: BeginFirstRound(), StartBattleLoop(), SpawnInitialBlocks() 등
+
+    }
+
+    private void TryResolveRoundEndSync()
+    {
+        if (!_localRoundReady || !_opponentRoundReady)
+            return;
+
+        if (_roundSyncAdvanceQueued)
+            return;
+
+        _waitingForOpponentRoundReady = false;
+        _roundSyncAdvanceQueued = true;
+
+        Debug.Log("[BBB] Both ROUND_READY received -> advance phase queued");
+
+        StartCoroutine(CoAdvanceAfterRoundSync());
+    }
+
+    private IEnumerator CoAdvanceAfterRoundSync()
+    {
+        // 같은 프레임에 중복 상태 변경 꼬임 방지
+        yield return null;
+
+        bool invoked = false;
+
+        // 네 기존 코드에 있는 라운드 전환 메서드명을 자동으로 찾아서 호출한다.
+        // 아래 후보들 중 하나만 실제로 있어도 된다.
+        invoked |= InvokeNoArgMethodIfExists("BeginResolvePhase");
+        invoked |= InvokeNoArgMethodIfExists("EnterResolvePhase");
+        invoked |= InvokeNoArgMethodIfExists("StartResolvePhase");
+        invoked |= InvokeNoArgMethodIfExists("AdvanceToResolvePhase");
+        invoked |= InvokeNoArgMethodIfExists("AdvanceToNextRound");
+        invoked |= InvokeNoArgMethodIfExists("BeginNextRound");
+        invoked |= InvokeNoArgMethodIfExists("StartNextRound");
+        invoked |= InvokeNoArgMethodIfExists("GoToNextRound");
+
+        if (!invoked)
+        {
+            Debug.LogError("[BBB] Round sync complete, but no round-advance method was found. Resolve/NextRound 메서드명을 확인해줘.");
+        }
+    }
+
+    private bool InvokeNoArgMethodIfExists(string methodName)
+    {
+        var flags = System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.Public |
+                    System.Reflection.BindingFlags.NonPublic;
+
+        var mi = GetType().GetMethod(methodName, flags);
+        if (mi == null)
+            return false;
+
+        var ps = mi.GetParameters();
+        if (ps != null && ps.Length > 0)
+            return false;
+
+        Debug.Log($"[BBB] Invoke round advance method -> {methodName}");
+        mi.Invoke(this, null);
+        return true;
+    }
+
+    public void ResetNetworkRoundSyncState()
+    {
+        _roundReadySendIssued = false;
+        _roundSyncAdvanceQueued = false;
+
+        _localRoundReady = false;
+        _opponentRoundReady = false;
+        _waitingForOpponentRoundReady = false;
+
+        if (_battleNetDriver != null)
+            _battleNetDriver.ResetRoundSyncState();
+
+        Debug.Log("[BBB] ResetNetworkRoundSyncState");
+    }
+
+    #endregion
 }

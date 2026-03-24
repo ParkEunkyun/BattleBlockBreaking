@@ -12,6 +12,13 @@ public class DraggableBlockView : MonoBehaviour, IBeginDragHandler, IDragHandler
 
     public RectTransform RectTransform => transform as RectTransform;
 
+   
+
+    private Vector2 _lastDragScreenPos;
+    private bool _hasLastDragScreenPos;
+
+    [SerializeField] private float dragUpdateMinDistance = 6f;
+
     private void Awake()
     {
         EnsureSealOverlay();
@@ -84,16 +91,40 @@ public class DraggableBlockView : MonoBehaviour, IBeginDragHandler, IDragHandler
     }
     public void OnBeginDrag(PointerEventData eventData)
     {
-        _owner?.OnBeginDragSlot(_slotIndex, eventData);
+        _hasLastDragScreenPos = false;
+        _lastDragScreenPos = eventData.position;
+
+        if (_owner != null)
+            _owner.OnBeginDragSlot(_slotIndex, eventData);
     }
 
     public void OnDrag(PointerEventData eventData)
     {
-        _owner?.OnDragSlot(_slotIndex, eventData);
+        if (_owner == null)
+            return;
+
+        Vector2 currentPos = eventData.position;
+
+        if (_hasLastDragScreenPos)
+        {
+            float sqrDist = (currentPos - _lastDragScreenPos).sqrMagnitude;
+            float minSqr = dragUpdateMinDistance * dragUpdateMinDistance;
+
+            if (sqrDist < minSqr)
+                return;
+        }
+
+        _lastDragScreenPos = currentPos;
+        _hasLastDragScreenPos = true;
+
+        _owner.OnDragSlot(_slotIndex, eventData);
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        _owner?.OnEndDragSlot(_slotIndex, eventData);
-    }
+        _hasLastDragScreenPos = false;
+
+        if (_owner != null)
+            _owner.OnEndDragSlot(_slotIndex, eventData);
+    }    
 }

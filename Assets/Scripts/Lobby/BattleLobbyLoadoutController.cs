@@ -3,11 +3,11 @@ using UnityEngine.SceneManagement;
 
 public class BattleLobbyLoadoutController : MonoBehaviour
 {
-    [Header("Battle Scene Name")]
-    [SerializeField] private string battleSceneName = "Scene_Battle";
+    [Header("Scene Name")]
+    [SerializeField] private string normalSceneName = "Scene_Normal";
 
     [Header("Mode")]
-    [SerializeField] private bool isRankedMode = true;
+    [SerializeField] private GameMode gameMode = GameMode.Ranked;
 
     [Header("Selected Attack Loadout (3)")]
     [SerializeField] private BattleManager.AttackItemId attack1 = BattleManager.AttackItemId.Obstacle2;
@@ -33,7 +33,33 @@ public class BattleLobbyLoadoutController : MonoBehaviour
             support2
         };
 
-        BattleLoadoutSession.SetLoadout(attacks, supports, isRankedMode);
-        SceneManager.LoadScene(battleSceneName);
+        BattleLoadoutSession.SetLoadout(attacks, supports, gameMode);
+
+        switch (gameMode)
+        {
+            case GameMode.Ranked:
+                {
+                    if (MatchManager.I == null)
+                    {
+                        Debug.LogError("[BattleLobbyLoadoutController] MatchManager가 씬에 없습니다.");
+                        return;
+                    }
+
+                    MatchManager.I.StartRankedMatch();
+                    break;
+                }
+
+            case GameMode.Normal:
+                {
+                    SceneManager.LoadScene(normalSceneName);
+                    break;
+                }
+
+            default:
+                {
+                    Debug.LogError("[BattleLobbyLoadoutController] 지원하지 않는 GameMode 입니다.");
+                    break;
+                }
+        }
     }
 }
