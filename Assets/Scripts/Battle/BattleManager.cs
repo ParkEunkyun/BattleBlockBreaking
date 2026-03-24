@@ -290,8 +290,6 @@ public class BattleManager : MonoBehaviour
     private readonly BattleItemId[,] _boardItems = new BattleItemId[BoardSize, BoardSize];
 
     private readonly bool[,] _opponentOccupied = new bool[BoardSize, BoardSize];
-    private readonly bool[,] _opponentObstacle = new bool[BoardSize, BoardSize];
-    private readonly Color32[,] _opponentColors = new Color32[BoardSize, BoardSize];
 
     private readonly List<BlockShape> _normalShapeLibrary = new List<BlockShape>();
     private readonly List<BlockShape> _curseShapeLibrary = new List<BlockShape>();
@@ -359,6 +357,7 @@ public class BattleManager : MonoBehaviour
 
         BuildBoards();
         ClearOpponentBoardSnapshot();
+
         ResetCurrentRoundBlocks();
         HideDefensePhase();
         HideResultPhase();
@@ -2163,21 +2162,7 @@ public class BattleManager : MonoBehaviour
                 if (img == null)
                     continue;
 
-                if (_opponentObstacle[x, y])
-                {
-                    img.color = ObstacleColor;
-                    continue;
-                }
-
-                if (_opponentOccupied[x, y])
-                {
-                    Color32 c = _opponentColors[x, y];
-                    img.color = c.a > 0 ? c : BoardBaseColor;
-                }
-                else
-                {
-                    img.color = BoardBaseColor;
-                }
+                img.color = _opponentOccupied[x, y] ? ObstacleColor : BoardBaseColor;
             }
         }
     }
@@ -3022,7 +3007,7 @@ public class BattleManager : MonoBehaviour
         _loadingHideRoutine = null;
     }
 
-    //¹Ì´Ï º¸µå ½º³À¼¦
+    //¹Ì´Ï º¸µå ½º³À¼¦    
     public byte[] BuildBoardSnapshotPayload()
     {
         using (MemoryStream ms = new MemoryStream())
@@ -3035,19 +3020,13 @@ public class BattleManager : MonoBehaviour
                 for (int x = 0; x < BoardSize; x++)
                 {
                     bw.Write(_myOccupied[x, y]);
-                    bw.Write(_myObstacle[x, y]);
-
-                    Color32 c = (Color32)_myColors[x, y];
-                    bw.Write(c.r);
-                    bw.Write(c.g);
-                    bw.Write(c.b);
-                    bw.Write(c.a);
                 }
             }
 
             return ms.ToArray();
         }
     }
+
     public void OnOpponentBoardSnapshotReceived(byte[] payload)
     {
         if (payload == null || payload.Length == 0)
@@ -3058,30 +3037,29 @@ public class BattleManager : MonoBehaviour
         {
             int size = br.ReadByte();
 
+            for (int y = 0; y < BoardSize; y++)
+            {
+                for (int x = 0; x < BoardSize; x++)
+                {
+                    _opponentOccupied[x, y] = false;
+                }
+            }
+
             for (int y = 0; y < size; y++)
             {
                 for (int x = 0; x < size; x++)
                 {
                     bool occupied = br.ReadBoolean();
-                    bool obstacle = br.ReadBoolean();
-
-                    byte r = br.ReadByte();
-                    byte g = br.ReadByte();
-                    byte b = br.ReadByte();
-                    byte a = br.ReadByte();
 
                     if (x < BoardSize && y < BoardSize)
-                    {
                         _opponentOccupied[x, y] = occupied;
-                        _opponentObstacle[x, y] = obstacle;
-                        _opponentColors[x, y] = new Color32(r, g, b, a);
-                    }
                 }
             }
         }
 
         RefreshOpponentMiniBoard();
     }
+
     private void ClearOpponentBoardSnapshot()
     {
         for (int y = 0; y < BoardSize; y++)
@@ -3089,8 +3067,6 @@ public class BattleManager : MonoBehaviour
             for (int x = 0; x < BoardSize; x++)
             {
                 _opponentOccupied[x, y] = false;
-                _opponentObstacle[x, y] = false;
-                _opponentColors[x, y] = Color.clear;
             }
         }
 
