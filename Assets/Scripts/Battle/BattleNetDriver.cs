@@ -315,6 +315,31 @@ public class BattleNetDriver : MonoBehaviour
                             break;
                         }
 
+                    case PacketOp.ScoreSync:
+                        {
+                            int score = br.ReadInt32();
+
+                            Log($"[RECV] SCORE_SYNC / from={fromSessionId} / score={score}");
+
+                            if (battleManager != null)
+                                battleManager.OnOpponentScoreSyncReceived(score);
+
+                            break;
+                        }
+
+                    case PacketOp.BoardSnapshot:
+                        {
+                            int remaining = (int)(ms.Length - ms.Position);
+                            byte[] payload = br.ReadBytes(remaining);
+
+                            Log($"[RECV] BOARD_SNAPSHOT / from={fromSessionId} / bytes={payload.Length}");
+
+                            if (battleManager != null)
+                                battleManager.OnOpponentBoardSnapshotReceived(payload);
+
+                            break;
+                        }
+
                     default:
                         {
                             Log($"알 수 없는 패킷 수신 / op={(byte)op}");
@@ -346,6 +371,37 @@ public class BattleNetDriver : MonoBehaviour
         for (int i = 0; i < supportCount; i++)
         {
             BattleMatchSession.OpponentSupportIds.Add((BattleManager.SupportItemId)br.ReadInt32());
+        }
+    }
+
+    public void SendScoreSync(int score)
+    {
+        if (!_battleStarted)
+        {
+            LogError("SCORE_SYNC 전송 실패", "아직 배틀 시작 전");
+            return;
+        }
+
+        if (!_joinedRoom)
+        {
+            LogError("SCORE_SYNC 전송 실패", "아직 게임방 입장 전");
+            return;
+        }
+
+        byte[] packet = BuildScoreSyncPacket(score);
+        if (SendPacket(packet))
+        {
+            Log($"[SEND] SCORE_SYNC / mySession={BattleMatchSession.MySessionId} / score={score}");
+        }
+    }
+    private byte[] BuildScoreSyncPacket(int score)
+    {
+        using (MemoryStream ms = new MemoryStream())
+        using (BinaryWriter bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)PacketOp.ScoreSync);
+            bw.Write(score);
+            return ms.ToArray();
         }
     }
 
@@ -843,5 +899,48 @@ public class BattleNetDriver : MonoBehaviour
         }
 
         return string.Empty;
+    }
+    public void SendBoardSnapshot()
+    {
+        if (!_battleStarted)
+        {
+            LogError("BOARD_SNAPSHOT 전송 실패", "아직 배틀 시작 전");
+            return;
+        }
+
+        if (!_joinedRoom)
+        {
+            LogError("BOARD_SNAPSHOT 전송 실패", "아직 게임방 입장 전");
+            return;
+        }
+
+        if (battleManager == null)
+        {
+            LogError("BOARD_SNAPSHOT 전송 실패", "battleManager is null");
+            return;
+        }
+
+        byte[] payload = battleManager.BuildBoardSnapshotPayload();
+        if (payload == null || payload.Length == 0)
+        {
+            LogError("BOARD_SNAPSHOT 전송 실패", "payload is empty");
+            return;
+        }
+
+        byte[] packet = BuildBoardSnapshotPacket(payload);
+        if (SendPacket(packet))
+        {
+            Log($"[SEND] BOARD_SNAPSHOT / mySession={BattleMatchSession.MySessionId} / bytes={payload.Length}");
+        }
+    }
+    private byte[] BuildBoardSnapshotPacket(byte[] payload)
+    {
+        using (MemoryStream ms = new MemoryStream())
+        using (BinaryWriter bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)PacketOp.BoardSnapshot);
+            bw.Write(payload);
+            return ms.ToArray();
+        }
     }
 }

@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using System.IO;
 
 public class BattleManager : MonoBehaviour
 {
@@ -288,6 +289,10 @@ public class BattleManager : MonoBehaviour
     private readonly Sprite[,] _myBlockSprites = new Sprite[BoardSize, BoardSize];
     private readonly BattleItemId[,] _boardItems = new BattleItemId[BoardSize, BoardSize];
 
+    private readonly bool[,] _opponentOccupied = new bool[BoardSize, BoardSize];
+    private readonly bool[,] _opponentObstacle = new bool[BoardSize, BoardSize];
+    private readonly Color32[,] _opponentColors = new Color32[BoardSize, BoardSize];
+
     private readonly List<BlockShape> _normalShapeLibrary = new List<BlockShape>();
     private readonly List<BlockShape> _curseShapeLibrary = new List<BlockShape>();
     private readonly BlockInstance[] _currentBlocks = new BlockInstance[3];
@@ -327,6 +332,10 @@ public class BattleManager : MonoBehaviour
     [SerializeField] private int _networkSeed;
     private bool IsRankedBattle => BattleMatchSession.Mode == GameMode.Ranked;
 
+    public int GetMyScoreForNetwork()
+    {
+        return _myScore;
+    }
 
     private void Awake()
     {
@@ -349,6 +358,7 @@ public class BattleManager : MonoBehaviour
         ShowLoadingOverlay(IsRankedBattle ? "상대 연결 중..." : "준비 중...");
 
         BuildBoards();
+        ClearOpponentBoardSnapshot();
         ResetCurrentRoundBlocks();
         HideDefensePhase();
         HideResultPhase();
@@ -2145,20 +2155,29 @@ public class BattleManager : MonoBehaviour
 
     private void RefreshOpponentMiniBoard()
     {
-        int fillLevel = Mathf.Clamp(8 + _round + (_myScore / 200), 8, 36);
-
         for (int y = 0; y < BoardSize; y++)
         {
             for (int x = 0; x < BoardSize; x++)
             {
-                if (_opponentMiniCells[x, y] == null)
+                Image img = _opponentMiniCells[x, y];
+                if (img == null)
                     continue;
 
-                int hash = (x * 17) + (y * 31) + (_round * 13) + (_myScore / 25);
-                bool filled = Mathf.Abs(hash % 64) < fillLevel;
-                _opponentMiniCells[x, y].color = filled
-                    ? new Color(0.72f, 0.37f, 0.48f, 1f)
-                    : BoardBaseColor;
+                if (_opponentObstacle[x, y])
+                {
+                    img.color = ObstacleColor;
+                    continue;
+                }
+
+                if (_opponentOccupied[x, y])
+                {
+                    Color32 c = _opponentColors[x, y];
+                    img.color = c.a > 0 ? c : BoardBaseColor;
+                }
+                else
+                {
+                    img.color = BoardBaseColor;
+                }
             }
         }
     }
@@ -2654,6 +2673,14 @@ public class BattleManager : MonoBehaviour
 
         TryResolveRoundEndSync();
     }
+    public void OnOpponentScoreSyncReceived(int score)
+    {
+        opponentScore = score;
+
+        RefreshTopHud();
+
+        Debug.Log($"[BBB] Opponent SCORE_SYNC received / score={score}");
+    }
 
     private void TryEnterResolveWhenBothReady()
     {
@@ -2671,7 +2698,6 @@ public class BattleManager : MonoBehaviour
     {
         if (_roundReadySendIssued)
         {
-            Debug.Log("[BBB] SendRoundEndReadyToOpponent ignored - already sent");
             return;
         }
 
@@ -2679,10 +2705,10 @@ public class BattleManager : MonoBehaviour
         _localRoundReady = true;
         _waitingForOpponentRoundReady = true;
 
-        Debug.Log("[BBB] SendRoundEndReadyToOpponent");
-
         if (_battleNetDriver != null)
         {
+            _battleNetDriver.SendBoardSnapshot();
+            _battleNetDriver.SendScoreSync(GetMyScoreForNetwork());
             _battleNetDriver.SendRoundReady();
         }
         else
@@ -2994,6 +3020,81 @@ public class BattleManager : MonoBehaviour
             loadingRoot.SetActive(false);
 
         _loadingHideRoutine = null;
+    }
+
+    //미니 보드 스냅샷
+    public byte[] BuildBoardSnapshotPayload()
+    {
+        using (MemoryStream ms = new MemoryStream())
+        using (BinaryWriter bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)BoardSize);
+
+            for (int y = 0; y < BoardSize; y++)
+            {
+                for (int x = 0; x < BoardSize; x++)
+                {
+                    bw.Write(_myOccupied[x, y]);
+                    bw.Write(_myObstacle[x, y]);
+
+                    Color32 c = (Color32)_myColors[x, y];
+                    bw.Write(c.r);
+                    bw.Write(c.g);
+                    bw.Write(c.b);
+                    bw.Write(c.a);
+                }
+            }
+
+            return ms.ToArray();
+        }
+    }
+    public void OnOpponentBoardSnapshotReceived(byte[] payload)
+    {
+        if (payload == null || payload.Length == 0)
+            return;
+
+        using (MemoryStream ms = new MemoryStream(payload))
+        using (BinaryReader br = new BinaryReader(ms))
+        {
+            int size = br.ReadByte();
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    bool occupied = br.ReadBoolean();
+                    bool obstacle = br.ReadBoolean();
+
+                    byte r = br.ReadByte();
+                    byte g = br.ReadByte();
+                    byte b = br.ReadByte();
+                    byte a = br.ReadByte();
+
+                    if (x < BoardSize && y < BoardSize)
+                    {
+                        _opponentOccupied[x, y] = occupied;
+                        _opponentObstacle[x, y] = obstacle;
+                        _opponentColors[x, y] = new Color32(r, g, b, a);
+                    }
+                }
+            }
+        }
+
+        RefreshOpponentMiniBoard();
+    }
+    private void ClearOpponentBoardSnapshot()
+    {
+        for (int y = 0; y < BoardSize; y++)
+        {
+            for (int x = 0; x < BoardSize; x++)
+            {
+                _opponentOccupied[x, y] = false;
+                _opponentObstacle[x, y] = false;
+                _opponentColors[x, y] = Color.clear;
+            }
+        }
+
+        RefreshOpponentMiniBoard();
     }
     #endregion
 }
