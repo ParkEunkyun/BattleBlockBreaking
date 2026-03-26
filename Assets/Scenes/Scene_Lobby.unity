@@ -317,6 +317,52 @@ MonoBehaviour:
   startGameMode: 1
   selectSprite: {fileID: 1471102179, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
   normalSprite: {fileID: 1414488829, guid: 8bc41ab15028b9a40bad8236b724611d, type: 3}
+  mmrText: {fileID: 1226048401}
+  tierIconImage: {fileID: 384244082}
+  detailVictoryText: {fileID: 0}
+  detailDrawText: {fileID: 0}
+  detailDefeatText: {fileID: 0}
+  tierVisualEntries:
+  - tierName: Beginner
+    minMmr: 0
+    maxMmr: 99
+    iconSprite: {fileID: 21300000, guid: c3fe6fa22bf8d4a59ab1f04f3e7dec78, type: 3}
+  - tierName: Bronzw
+    minMmr: 100
+    maxMmr: 199
+    iconSprite: {fileID: 21300000, guid: 51e14afaec1004896b999f923bba5263, type: 3}
+  - tierName: Silver
+    minMmr: 200
+    maxMmr: 299
+    iconSprite: {fileID: 21300000, guid: 43bfb30270b034700ba7606f20dcdc5f, type: 3}
+  - tierName: Gold
+    minMmr: 300
+    maxMmr: 399
+    iconSprite: {fileID: 21300000, guid: 9fbef35e35b994b07a721e134cbaad4f, type: 3}
+  - tierName: Platinum
+    minMmr: 400
+    maxMmr: 499
+    iconSprite: {fileID: 21300000, guid: ddae544dc73794e5e96dc8bd68557821, type: 3}
+  - tierName: Diamond
+    minMmr: 500
+    maxMmr: 599
+    iconSprite: {fileID: 21300000, guid: 84b0a6b6f58f845cd838f1831f8cfdb5, type: 3}
+  - tierName: Semi Master
+    minMmr: 600
+    maxMmr: 799
+    iconSprite: {fileID: 21300000, guid: 6e39e3181973146a09696b7d210449a7, type: 3}
+  - tierName: Master
+    minMmr: 800
+    maxMmr: 999
+    iconSprite: {fileID: 21300000, guid: 4a6c7bc9088164084adeff4c1a60e2f5, type: 3}
+  - tierName: Grand Master
+    minMmr: 1000
+    maxMmr: 1999
+    iconSprite: {fileID: 21300000, guid: 699c248b937b44f7a944df584a12fc43, type: 3}
+  - tierName: Challanger
+    minMmr: 2000
+    maxMmr: 2999
+    iconSprite: {fileID: 21300000, guid: 95ac2b5445eec49ca96e98dd98bf0cb7, type: 3}
 --- !u!114 &59586516
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7224,7 +7270,7 @@ GameObject:
   m_Component:
   - component: {fileID: 766420178}
   m_Layer: 5
-  m_Name: 'TopBarRoot                   '
+  m_Name: TopBarRoot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -10199,7 +10245,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1168104865
 RectTransform:
   m_ObjectHideFlags: 0

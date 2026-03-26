@@ -335,6 +335,7 @@ public class BattleManager : MonoBehaviour
         return _myScore;
     }
 
+    [SerializeField] private TMP_Text resultMmrText;
     private void Awake()
     {
         Transform safeArea = FindSafeArea();
@@ -401,6 +402,9 @@ public class BattleManager : MonoBehaviour
                 UpdateResolvePhase();
                 break;
         }
+
+        if (IsRankedBattle && _resultPhaseRoot != null && _resultPhaseRoot.activeSelf)
+            RefreshRankedResultMmrUi();
     }
 
     #region Public Debug
@@ -3090,6 +3094,25 @@ public class BattleManager : MonoBehaviour
         }
 
         _battleNetDriver.SubmitMatchResultByScores(_myScore, opponentScore);
+    }
+
+    public void OnRankedRecordRefreshedFromServer()
+    {
+        RefreshRankedResultMmrUi();
+    }
+
+    private void RefreshRankedResultMmrUi()
+    {
+        if (resultMmrText == null)
+            return;
+
+        if (!IsRankedBattle || !RankedRecordCache.HasLoaded)
+        {
+            resultMmrText.text = "-";
+            return;
+        }
+
+        resultMmrText.text = RankedRecordCache.GetFormattedMmrWithDelta();
     }
     #endregion
 }

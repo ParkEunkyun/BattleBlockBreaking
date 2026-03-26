@@ -598,6 +598,24 @@ public class MatchManager : MonoBehaviour
     {
         Debug.LogError($"[MatchManager] {title}" + (string.IsNullOrWhiteSpace(detail) ? "" : $" / {detail}"));
     }
+    public bool TryGetRankedRecordConfig(out MatchType matchType, out MatchModeType modeType, out string matchCardInDate)
+    {
+        matchCardInDate = string.Empty;
 
+        if (!TryParseMatchEnums(out matchType, out modeType))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(rankedMatchCardInDate))
+        {
+            if (!autoResolveMatchCardInDate)
+                return false;
+
+            if (!TryResolveMatchCardInDateFromConsole())
+                return false;
+        }
+
+        matchCardInDate = rankedMatchCardInDate;
+        return !string.IsNullOrWhiteSpace(matchCardInDate);
+    }
 
 }

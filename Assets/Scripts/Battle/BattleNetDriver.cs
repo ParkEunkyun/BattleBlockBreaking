@@ -254,6 +254,17 @@ public class BattleNetDriver : MonoBehaviour
             string reason = ReadMemberAsString(args, "Reason");
 
             Log($"OnMatchResult / err={err} / reason={reason}");
+
+            RankedRecordService.RefreshMyRankedRecord((ok, message) =>
+            {
+                if (ok)
+                    Log($"RankedRecord refreshed / {message}");
+                else
+                    LogError("RankedRecord refresh failed", message);
+
+                if (battleManager != null)
+                    battleManager.OnRankedRecordRefreshedFromServer();
+            });
         };
 
         _eventsBound = true;

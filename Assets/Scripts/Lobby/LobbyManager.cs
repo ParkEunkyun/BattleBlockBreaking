@@ -39,8 +39,8 @@ public class LobbyManager : MonoBehaviour
     [SerializeField] private string normalSceneName = "Scene_Normal";
 
     [Header("Profile / Lobby Text")]
-    [SerializeField] private string nickname = "은균";
-    [SerializeField] private string tierLabel = "Bronze III";
+    [SerializeField] private string nickname = "";
+    [SerializeField] private string tierLabel = "";
     [SerializeField] private int gold = 12450;
     [SerializeField] private string seasonLabel = "시즌1: 블록 쇼다운";
     [SerializeField] private string defaultMissionText = "오늘의 미션: 3승 달성!";
@@ -88,6 +88,15 @@ public class LobbyManager : MonoBehaviour
     [SerializeField] private List<AttackVisualEntry> attackVisualEntries = new List<AttackVisualEntry>();
     [SerializeField] private List<SupportVisualEntry> supportVisualEntries = new List<SupportVisualEntry>();
 
+    [Serializable]
+    private sealed class TierVisualEntry
+    {
+        public string tierName;
+        public int minMmr;
+        public int maxMmr = 999999;
+        public Sprite iconSprite;
+    }
+
     [Header("Mode")]
     [SerializeField] private GameMode startGameMode = GameMode.Ranked;
 
@@ -110,29 +119,29 @@ public class LobbyManager : MonoBehaviour
     private GameMode _gameMode = GameMode.Ranked;
     private Coroutine _matchRoutine;
 
-    private TMP_Text _nicknameText;
-    private TMP_Text _tierText;
-    private TMP_Text _goldText;
-    private TMP_Text _seasonText;
-    private TMP_Text _missionText;
-    private TMP_Text _noticeText;
-    private TMP_Text _matchStatusText;
-    private TMP_Text _popupTitleText;
+    [SerializeField] private TMP_Text _nicknameText;
+    [SerializeField] private TMP_Text _tierText;
+    [SerializeField] private TMP_Text _goldText;
+    [SerializeField] private TMP_Text _seasonText;
+    [SerializeField] private TMP_Text _missionText;
+    [SerializeField] private TMP_Text _noticeText;
+    [SerializeField] private TMP_Text _matchStatusText;
+    [SerializeField] private TMP_Text _popupTitleText;
 
-    private Button _settingsButton;
-    private Button _startBattleButton;
-    private Button _rankedModeButton;
-    private Button _normalModeButton;
-    private Button _editAttackLoadoutButton;
-    private Button _editSupportLoadoutButton;
-    private Button _confirmLoadoutButton;
-    private Button _closeLoadoutButton;
-    private Button _cancelMatchButton;
-    private Button _loadoutTabButton;
-    private Button _homeTabButton;
-    private Button _shopTabButton;
-    private Button _recordTabButton;
-    private Button _claimRewardButton;
+    [SerializeField] private Button _settingsButton;
+    [SerializeField] private Button _startBattleButton;
+    [SerializeField] private Button _rankedModeButton;
+    [SerializeField] private Button _normalModeButton;
+    [SerializeField] private Button _editAttackLoadoutButton;
+    [SerializeField] private Button _editSupportLoadoutButton;
+    [SerializeField] private Button _confirmLoadoutButton;
+    [SerializeField] private Button _closeLoadoutButton;
+    [SerializeField] private Button _cancelMatchButton;
+    [SerializeField] private Button _loadoutTabButton;
+    [SerializeField] private Button _homeTabButton;
+    [SerializeField] private Button _shopTabButton;
+    [SerializeField] private Button _recordTabButton;
+    [SerializeField] private Button _claimRewardButton;
 
     private GameObject _loadoutPopupRoot;
     private GameObject _matchPopupRoot;
@@ -154,17 +163,38 @@ public class LobbyManager : MonoBehaviour
     private bool IsRankedMode => _gameMode == GameMode.Ranked;
     private bool IsNormalMode => _gameMode == GameMode.Normal;
 
+    [Header("Ranked Record UI")]
+    [SerializeField] private TMP_Text mmrText;
+    [SerializeField] private Image tierIconImage;
+    [SerializeField] private TMP_Text detailVictoryText;
+    [SerializeField] private TMP_Text detailDrawText;
+    [SerializeField] private TMP_Text detailDefeatText;
+    [SerializeField] private List<TierVisualEntry> tierVisualEntries = new List<TierVisualEntry>();
+
     private void Awake()
     {
         BuildVisualMaps();
         CacheHierarchy();
         BindButtons();
         LoadSavedLoadoutOrDefault();
+        RefreshNicknameFromBackend();
         ApplyProfileTexts();
         RefreshModeUI();
         RefreshPreviewUI();
         HideLoadoutPopup();
         HideMatchPopup();
+        ApplyRankedRecordUi();
+    }
+    private void Start()
+    {
+        RankedRecordCache.Changed += HandleRankedRecordCacheChanged;
+
+        ApplyRankedRecordUi();
+        RankedRecordService.RefreshMyRankedRecord();
+    }
+    private void OnDestroy()
+    {
+        RankedRecordCache.Changed -= HandleRankedRecordCacheChanged;
     }
 
     private void BuildVisualMaps()
@@ -733,6 +763,7 @@ public class LobbyManager : MonoBehaviour
                         return;
                     }
 
+                    RankedRecordCache.MarkPreMatchFromCurrent();
                     MatchManager.I.StartRankedMatch();
                     break;
                 }
@@ -992,5 +1023,106 @@ public class LobbyManager : MonoBehaviour
         img.color = new Color(1f, 0.85f, 0.2f, 0.22f);
 
         return go;
+    }
+
+    // 로비 티어 표시
+    private void HandleRankedRecordCacheChanged()
+    {
+        ApplyRankedRecordUi();
+    }
+
+    private void ApplyRankedRecordUi()
+    {
+        if (!RankedRecordCache.HasLoaded)
+        {
+            if (mmrText != null)
+                mmrText.text = "-";
+
+            if (detailVictoryText != null)
+                detailVictoryText.text = "0";
+
+            if (detailDrawText != null)
+                detailDrawText.text = "0";
+
+            if (detailDefeatText != null)
+                detailDefeatText.text = "0";
+
+            return;
+        }
+
+        TierVisualEntry tier = GetTierVisualByMmr(RankedRecordCache.CurrentMmr);
+
+        if (_tierText != null)
+            _tierText.text = tier != null && !string.IsNullOrWhiteSpace(tier.tierName)
+                ? tier.tierName
+                : tierLabel;
+
+        if (mmrText != null)
+            mmrText.text = RankedRecordCache.CurrentMmr.ToString();
+
+        if (tierIconImage != null)
+        {
+            tierIconImage.sprite = tier != null ? tier.iconSprite : null;
+            tierIconImage.enabled = tierIconImage.sprite != null;
+        }
+
+        if (detailVictoryText != null)
+            detailVictoryText.text = RankedRecordCache.Victory.ToString();
+
+        if (detailDrawText != null)
+            detailDrawText.text = RankedRecordCache.Draw.ToString();
+
+        if (detailDefeatText != null)
+            detailDefeatText.text = RankedRecordCache.Defeat.ToString();
+    }
+
+    private TierVisualEntry GetTierVisualByMmr(int mmr)
+    {
+        for (int i = 0; i < tierVisualEntries.Count; i++)
+        {
+            TierVisualEntry entry = tierVisualEntries[i];
+            if (entry == null)
+                continue;
+
+            if (mmr >= entry.minMmr && mmr <= entry.maxMmr)
+                return entry;
+        }
+
+        return null;
+    }
+
+    private void RefreshNicknameFromBackend()
+    {
+        string resolved = ResolveBackendNicknameSafe();
+
+        if (!string.IsNullOrWhiteSpace(resolved))
+            nickname = resolved;
+    }
+
+    private string ResolveBackendNicknameSafe()
+    {
+        try
+        {
+            // 1순위: Backend.UserNickName 프로퍼티 직접 시도
+            var prop = typeof(BackEnd.Backend).GetProperty(
+                "UserNickName",
+                System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.Static);
+
+            if (prop != null)
+            {
+                object value = prop.GetValue(null, null);
+                string nick = value != null ? value.ToString() : string.Empty;
+
+                if (!string.IsNullOrWhiteSpace(nick))
+                    return nick;
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return nickname; // fallback
     }
 }
