@@ -54,6 +54,7 @@ public class BattleNetDriver : MonoBehaviour
     private bool _localRoundReadySent;
     private bool _remoteRoundReadyReceived;
 
+    private bool _matchEndSent;
     private void Awake()
     {
         if (battleManager == null)
@@ -168,6 +169,8 @@ public class BattleNetDriver : MonoBehaviour
             bool success = IsSuccessErrInfo(errInfo);
 
             string sessionId = ExtractSessionId(sessionInfo);
+            SessionId rawSessionId = ExtractSessionIdValue(sessionInfo);
+
             string reason = ReadMemberAsString(errInfo, "Reason");
             string category = ReadMemberAsString(errInfo, "Category");
 
@@ -186,6 +189,8 @@ public class BattleNetDriver : MonoBehaviour
 
             if (!string.IsNullOrWhiteSpace(sessionId))
                 BattleMatchSession.MySessionId = sessionId;
+
+            BattleMatchSession.MySession = rawSessionId;
 
             JoinGameRoom();
         };
@@ -241,6 +246,14 @@ public class BattleNetDriver : MonoBehaviour
         {
             string offlineSessionId = ExtractSessionId(ReadMember(args, "SessionInfo"));
             LogError("세션 오프라인 감지", offlineSessionId);
+        };
+
+        Backend.Match.OnMatchResult = args =>
+        {
+            string err = ReadMemberAsString(args, "ErrInfo");
+            string reason = ReadMemberAsString(args, "Reason");
+
+            Log($"OnMatchResult / err={err} / reason={reason}");
         };
 
         _eventsBound = true;
@@ -484,6 +497,7 @@ public class BattleNetDriver : MonoBehaviour
             return;
 
         _battleStarted = true;
+        _matchEndSent = false;
         ResetRoundSyncState();
         BattleMatchSession.MatchSeed = seed;
 
@@ -773,6 +787,9 @@ public class BattleNetDriver : MonoBehaviour
         string mySession = BattleMatchSession.MySessionId;
         string oppSession = BattleMatchSession.OpponentSessionId;
 
+        SessionId mySessionRaw = BattleMatchSession.MySession;
+        SessionId oppSessionRaw = BattleMatchSession.OpponentSession;
+
         for (int i = 0; i < gameRecords.Count; i++)
         {
             object record = gameRecords[i];
@@ -780,6 +797,7 @@ public class BattleNetDriver : MonoBehaviour
                 continue;
 
             string sessionId = ExtractSessionIdFromGameRecord(record);
+            SessionId sessionRaw = ExtractSessionIdValueFromGameRecord(record);
             string nick = ExtractNicknameFromGameRecord(record);
 
             if (string.IsNullOrWhiteSpace(sessionId))
@@ -788,17 +806,19 @@ public class BattleNetDriver : MonoBehaviour
             if (!string.IsNullOrWhiteSpace(myNick) && nick == myNick)
             {
                 mySession = sessionId;
+                mySessionRaw = sessionRaw;
                 continue;
             }
 
             if (!string.IsNullOrWhiteSpace(opponentNick) && nick == opponentNick)
             {
                 oppSession = sessionId;
+                oppSessionRaw = sessionRaw;
                 continue;
             }
         }
 
-        // 닉네임 기준으로 못 찾았으면 2인 방 전제 fallback
+        // 닉네임 기준으로 못 찾았으면 2인 방 fallback
         if (string.IsNullOrWhiteSpace(mySession) || string.IsNullOrWhiteSpace(oppSession))
         {
             for (int i = 0; i < gameRecords.Count; i++)
@@ -808,16 +828,20 @@ public class BattleNetDriver : MonoBehaviour
                     continue;
 
                 string sessionId = ExtractSessionIdFromGameRecord(record);
+                SessionId sessionRaw = ExtractSessionIdValueFromGameRecord(record);
+
                 if (string.IsNullOrWhiteSpace(sessionId))
                     continue;
 
                 if (string.IsNullOrWhiteSpace(mySession))
                 {
                     mySession = sessionId;
+                    mySessionRaw = sessionRaw;
                 }
                 else if (sessionId != mySession && string.IsNullOrWhiteSpace(oppSession))
                 {
                     oppSession = sessionId;
+                    oppSessionRaw = sessionRaw;
                 }
             }
         }
@@ -827,6 +851,9 @@ public class BattleNetDriver : MonoBehaviour
 
         if (!string.IsNullOrWhiteSpace(oppSession))
             BattleMatchSession.OpponentSessionId = oppSession;
+
+        BattleMatchSession.MySession = mySessionRaw;
+        BattleMatchSession.OpponentSession = oppSessionRaw;
 
         RefreshHostAuthority();
     }
@@ -942,5 +969,142 @@ public class BattleNetDriver : MonoBehaviour
             bw.Write(payload);
             return ms.ToArray();
         }
+    }
+    public void SubmitMatchResultByScores(int myScore, int opponentScore)
+    {
+        if (_matchEndSent)
+        {
+            Log("MatchEnd already sent");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(BattleMatchSession.MySessionId) ||
+            string.IsNullOrWhiteSpace(BattleMatchSession.OpponentSessionId))
+        {
+            LogError("MatchEnd 실패",
+                $"session missing / my={BattleMatchSession.MySessionId}, opp={BattleMatchSession.OpponentSessionId}");
+            return;
+        }
+
+        try
+        {
+            MatchGameResult matchGameResult = new MatchGameResult();
+            matchGameResult.m_winners = new List<SessionId>();
+            matchGameResult.m_losers = new List<SessionId>();
+            matchGameResult.m_draws = new List<SessionId>();
+
+            if (myScore > opponentScore)
+            {
+                matchGameResult.m_winners.Add(BattleMatchSession.MySession);
+                matchGameResult.m_losers.Add(BattleMatchSession.OpponentSession);
+
+                Log($"[SEND] MATCH_END / WIN / my={myScore} / opp={opponentScore}");
+            }
+            else if (myScore < opponentScore)
+            {
+                matchGameResult.m_winners.Add(BattleMatchSession.OpponentSession);
+                matchGameResult.m_losers.Add(BattleMatchSession.MySession);
+
+                Log($"[SEND] MATCH_END / LOSE / my={myScore} / opp={opponentScore}");
+            }
+            else
+            {
+                matchGameResult.m_draws.Add(BattleMatchSession.MySession);
+                matchGameResult.m_draws.Add(BattleMatchSession.OpponentSession);
+
+                Log($"[SEND] MATCH_END / DRAW / my={myScore} / opp={opponentScore}");
+            }
+
+            Backend.Match.MatchEnd(matchGameResult);
+            _matchEndSent = true;
+        }
+        catch (Exception e)
+        {
+            LogError("MatchEnd 예외", e.Message);
+        }
+    }
+
+    private SessionId CreateSessionIdFromString(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            throw new InvalidOperationException("SessionId string is empty.");
+
+        Type t = typeof(SessionId);
+
+        // 1) string 생성자 우선 시도
+        ConstructorInfo ctor = t.GetConstructor(
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+            null,
+            new[] { typeof(string) },
+            null);
+
+        if (ctor != null)
+            return (SessionId)ctor.Invoke(new object[] { raw });
+
+        // 2) Parse(string) 정적 메서드 시도
+        MethodInfo parse = t.GetMethod(
+            "Parse",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+            null,
+            new[] { typeof(string) },
+            null);
+
+        if (parse != null)
+            return (SessionId)parse.Invoke(null, new object[] { raw });
+
+        throw new InvalidOperationException(
+            "SessionId를 string에서 생성할 수 없습니다. BattleMatchSession에 SessionId 원본 타입을 저장하도록 바꿔야 합니다.");
+    }
+    private static SessionId ExtractSessionIdValue(object sessionInfo)
+    {
+        if (sessionInfo == null)
+            return default;
+
+        string[] candidates =
+        {
+        "SessionId",
+        "m_sessionId",
+        "Id",
+        "id"
+    };
+
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            object value = ReadMember(sessionInfo, candidates[i]);
+            if (value is SessionId sid)
+                return sid;
+        }
+
+        return default;
+    }
+
+    private static SessionId ExtractSessionIdValueFromGameRecord(object record)
+    {
+        if (record == null)
+            return default;
+
+        string[] directCandidates =
+        {
+        "SessionId",
+        "m_sessionId",
+        "sessionId",
+        "id"
+    };
+
+        for (int i = 0; i < directCandidates.Length; i++)
+        {
+            object value = ReadMember(record, directCandidates[i]);
+            if (value is SessionId sid)
+                return sid;
+        }
+
+        object sessionInfo = ReadMember(record, "Session");
+        if (sessionInfo == null)
+            sessionInfo = ReadMember(record, "SessionInfo");
+
+        if (sessionInfo != null)
+            return ExtractSessionIdValue(sessionInfo);
+
+        return default;
     }
 }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using BackEnd.Tcp;
 
 public static class BattleMatchSession
 {
@@ -7,8 +8,13 @@ public static class BattleMatchSession
     public static string MyNickname = "";
     public static string OpponentNickname = "";
 
+    // 문자열 버전: 로그/비교/표시용
     public static string MySessionId = "";
     public static string OpponentSessionId = "";
+
+    // 원본 타입: MatchEnd 제출용
+    public static SessionId MySession;
+    public static SessionId OpponentSession;
 
     public static string MatchCardInDate = "";
     public static string InGameRoomToken = "";
@@ -37,6 +43,9 @@ public static class BattleMatchSession
 
         MySessionId = "";
         OpponentSessionId = "";
+
+        MySession = default;
+        OpponentSession = default;
 
         MatchCardInDate = "";
         InGameRoomToken = "";

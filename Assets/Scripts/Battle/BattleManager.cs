@@ -1076,6 +1076,8 @@ public class BattleManager : MonoBehaviour
 
     private void EndBattle()
     {
+        SubmitNetworkMatchResultIfNeeded();
+
         _phase = BattlePhase.Resolve;
         _phaseTimer = 9999f;
 
@@ -3071,6 +3073,23 @@ public class BattleManager : MonoBehaviour
         }
 
         RefreshOpponentMiniBoard();
+    }
+
+    private void SubmitNetworkMatchResultIfNeeded()
+    {
+        if (BattleMatchSession.Mode != GameMode.Ranked)
+            return;
+
+        if (_battleNetDriver == null)
+            _battleNetDriver = GetComponent<BattleNetDriver>();
+
+        if (_battleNetDriver == null)
+        {
+            Debug.LogError("[BBB] SubmitNetworkMatchResultIfNeeded failed - BattleNetDriver is null");
+            return;
+        }
+
+        _battleNetDriver.SubmitMatchResultByScores(_myScore, opponentScore);
     }
     #endregion
 }
