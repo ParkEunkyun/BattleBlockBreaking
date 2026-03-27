@@ -431,6 +431,8 @@ public class BattleManager : MonoBehaviour
 
     public void QueueIncomingAttack(BattleItemId attackItemId, bool showImmediatelyIfPossible = false)
     {
+        Debug.Log($"[BM] QueueIncomingAttack item={attackItemId} phase={_phase}");
+
         if (GetItemKind(attackItemId) != ItemKind.Attack)
             return;
 
@@ -933,6 +935,8 @@ public class BattleManager : MonoBehaviour
 
     private void StartRound()
     {
+        Debug.Log($"[BM] StartRound incoming={_incomingAttackItem}");
+
         ResetNetworkRoundSyncState();
         RefreshRoundEndButtonUI();
         HideResultPhase();
@@ -1128,20 +1132,30 @@ public class BattleManager : MonoBehaviour
         if (_phase != BattlePhase.Defense)
             return;
 
-        int ownedId = FindFirstOwnedItemIdByType(BattleItemId.DefenseUniversal);
-        if (ownedId < 0)
+        if (_incomingAttackItem == BattleItemId.None)
+        {
+            HideDefensePhase();
+            BeginPlayableRound();
+            return;
+        }
+
+        int defenseIndex = FindFirstDefenseOwnedItemIndex();
+        if (defenseIndex < 0)
         {
             SkipDefenseNow();
             return;
         }
 
-        RemoveOwnedItemByOwnedId(ownedId);
+        _ownedItems.RemoveAt(defenseIndex);
         _incomingAttackItem = BattleItemId.None;
 
         RefreshOwnedItemUI();
+        RefreshDefenseUI();
         RefreshBoardVisual();
+        RefreshOpponentMiniBoard();
+
+        HideDefensePhase();
         BeginPlayableRound();
-        RefreshRoundEndButtonUI();
     }
 
     private void SkipDefenseNow()
@@ -1149,13 +1163,16 @@ public class BattleManager : MonoBehaviour
         if (_phase != BattlePhase.Defense)
             return;
 
-        ApplyIncomingAttackEffect(_incomingAttackItem);
+        BattleItemId pendingAttack = _incomingAttackItem;
         _incomingAttackItem = BattleItemId.None;
 
-        RefreshOwnedItemUI();
-        RefreshBoardVisual();
+        if (pendingAttack != BattleItemId.None)
+            ApplyIncomingAttackToMyBoard(pendingAttack);
+
+        RefreshDefenseUI();
+
+        HideDefensePhase();
         BeginPlayableRound();
-        RefreshRoundEndButtonUI();
     }
 
     #endregion
@@ -1517,7 +1534,11 @@ public class BattleManager : MonoBehaviour
 
     private void ToggleReserveAttack(int ownedId)
     {
-        _reservedOutgoingOwnedItemId = _reservedOutgoingOwnedItemId == ownedId ? -1 : ownedId;
+        if (_reservedOutgoingOwnedItemId == ownedId)
+            _reservedOutgoingOwnedItemId = -1;
+        else
+            _reservedOutgoingOwnedItemId = ownedId;
+
         RefreshOwnedItemUI();
     }
 
@@ -1679,20 +1700,53 @@ public class BattleManager : MonoBehaviour
         if (_reservedOutgoingOwnedItemId < 0)
             return;
 
-        int index = FindOwnedItemIndexByOwnedId(_reservedOutgoingOwnedItemId);
-        if (index < 0)
+        int foundIndex = -1;
+        OwnedItemData foundData = null;
+
+        for (int i = 0; i < _ownedItems.Count; i++)
+        {
+            if (_ownedItems[i].ownedId == _reservedOutgoingOwnedItemId)
+            {
+                foundIndex = i;
+                foundData = _ownedItems[i];
+                break;
+            }
+        }
+
+        if (foundData == null)
         {
             _reservedOutgoingOwnedItemId = -1;
             RefreshOwnedItemUI();
             return;
         }
 
-        BattleItemId attackItem = _ownedItems[index].itemId;
-        _ownedItems.RemoveAt(index);
-        _reservedOutgoingOwnedItemId = -1;
+        if (GetItemKind(foundData.itemId) != ItemKind.Attack)
+        {
+            _reservedOutgoingOwnedItemId = -1;
+            RefreshOwnedItemUI();
+            return;
+        }
 
-        if (GetItemKind(attackItem) == ItemKind.Attack && loopbackReservedAttackForDebug)
-            _incomingAttackItem = attackItem;
+        bool success = false;
+
+        if (IsRankedBattle)
+        {
+            success = (_battleNetDriver != null) && _battleNetDriver.SendItemUseAttack(foundData.itemId);
+        }
+        else
+        {
+            // 로컬 테스트용
+            success = true;
+
+            if (loopbackReservedAttackForDebug)
+                QueueIncomingAttack(foundData.itemId, false);
+        }
+
+        if (!success)
+            return;
+
+        _ownedItems.RemoveAt(foundIndex);
+        _reservedOutgoingOwnedItemId = -1;
 
         RefreshOwnedItemUI();
     }
@@ -3114,5 +3168,203 @@ public class BattleManager : MonoBehaviour
 
         resultMmrText.text = RankedRecordCache.GetFormattedMmrWithDelta();
     }
+
+    public void OnNetworkItemUseReceived(BattleItemId itemId)
+    {
+        if (GetItemKind(itemId) != ItemKind.Attack)
+            return;
+
+        QueueIncomingAttack(itemId, false);
+    }
+
+    private int FindFirstDefenseOwnedItemIndex()
+    {
+        for (int i = 0; i < _ownedItems.Count; i++)
+        {
+            if (GetItemKind(_ownedItems[i].itemId) == ItemKind.Defense)
+                return i;
+        }
+
+        return -1;
+    }
+
+    private void ApplyIncomingAttackToMyBoard(BattleItemId itemId)
+    {
+        switch (itemId)
+        {
+            case BattleItemId.AttackObstacle2:
+                ApplyObstacleAttackToMyBoard(2);
+                break;
+
+            case BattleItemId.AttackSealRandomSlot:
+                ApplySealRandomSlotAttackToMyBoard();
+                break;
+
+            case BattleItemId.AttackCurseBlock:
+                ApplyCurseBlockAttackToMyBoard();
+                break;
+
+            case BattleItemId.AttackDisableItemUse:
+                ApplyDisableItemUseAttackToMyBoard();
+                break;
+
+            case BattleItemId.AttackDeleteRandomLine:
+                ApplyDeleteRandomLineAttackToMyBoard();
+                break;
+
+            case BattleItemId.AttackBomb3x3:
+                ApplyBomb3x3AttackToMyBoard();
+                break;
+        }
+
+        RefreshSlotVisual();
+        RefreshOwnedItemUI();
+        RefreshBoardVisual();
+        RefreshOpponentMiniBoard();
+        RefreshTopHud();
+
+        if (IsRankedBattle && _battleNetDriver != null)
+            _battleNetDriver.SendBoardSnapshot();
+    }
+
+    private void ApplyObstacleAttackToMyBoard(int count)
+    {
+        List<Vector2Int> candidates = new List<Vector2Int>();
+
+        for (int y = 0; y < BoardSize; y++)
+        {
+            for (int x = 0; x < BoardSize; x++)
+            {
+                if (_myOccupied[x, y]) continue;
+                if (_myObstacle[x, y]) continue;
+                if (_boardItems[x, y] != BattleItemId.None) continue;
+
+                candidates.Add(new Vector2Int(x, y));
+            }
+        }
+
+        for (int i = 0; i < count && candidates.Count > 0; i++)
+        {
+            int pick = UnityEngine.Random.Range(0, candidates.Count);
+            Vector2Int cell = candidates[pick];
+            candidates.RemoveAt(pick);
+
+            _myObstacle[cell.x, cell.y] = true;
+            _myOccupied[cell.x, cell.y] = false;
+            _myColors[cell.x, cell.y] = Color.clear;
+            _myBlockSprites[cell.x, cell.y] = null;
+            _boardItems[cell.x, cell.y] = BattleItemId.None;
+        }
+    }
+
+    private void ApplySealRandomSlotAttackToMyBoard()
+    {
+        _sealedSlotIndex = UnityEngine.Random.Range(0, _currentBlocks.Length);
+    }
+
+    private void ApplyCurseBlockAttackToMyBoard()
+    {
+        _forceCurseBlockNextRound = true;
+    }
+
+    private void ApplyDisableItemUseAttackToMyBoard()
+    {
+        _itemUseBlockedThisRound = true;
+    }
+
+    private void ApplyDeleteRandomLineAttackToMyBoard()
+    {
+        List<(bool isRow, int index)> candidates = new List<(bool, int)>();
+
+        for (int y = 0; y < BoardSize; y++)
+        {
+            bool hasAny = false;
+            for (int x = 0; x < BoardSize; x++)
+            {
+                if (_myOccupied[x, y] || _myObstacle[x, y] || _boardItems[x, y] != BattleItemId.None)
+                {
+                    hasAny = true;
+                    break;
+                }
+            }
+
+            if (hasAny)
+                candidates.Add((true, y));
+        }
+
+        for (int x = 0; x < BoardSize; x++)
+        {
+            bool hasAny = false;
+            for (int y = 0; y < BoardSize; y++)
+            {
+                if (_myOccupied[x, y] || _myObstacle[x, y] || _boardItems[x, y] != BattleItemId.None)
+                {
+                    hasAny = true;
+                    break;
+                }
+            }
+
+            if (hasAny)
+                candidates.Add((false, x));
+        }
+
+        if (candidates.Count == 0)
+            return;
+
+        int pick = UnityEngine.Random.Range(0, candidates.Count);
+        var selected = candidates[pick];
+
+        if (selected.isRow)
+        {
+            int y = selected.index;
+            for (int x = 0; x < BoardSize; x++)
+                ClearMyBoardCell(x, y);
+        }
+        else
+        {
+            int x = selected.index;
+            for (int y = 0; y < BoardSize; y++)
+                ClearMyBoardCell(x, y);
+        }
+    }
+
+    private void ApplyBomb3x3AttackToMyBoard()
+    {
+        List<Vector2Int> hotCells = new List<Vector2Int>();
+
+        for (int y = 0; y < BoardSize; y++)
+        {
+            for (int x = 0; x < BoardSize; x++)
+            {
+                if (_myOccupied[x, y] || _myObstacle[x, y] || _boardItems[x, y] != BattleItemId.None)
+                    hotCells.Add(new Vector2Int(x, y));
+            }
+        }
+
+        Vector2Int center = hotCells.Count > 0
+            ? hotCells[UnityEngine.Random.Range(0, hotCells.Count)]
+            : new Vector2Int(UnityEngine.Random.Range(0, BoardSize), UnityEngine.Random.Range(0, BoardSize));
+
+        for (int y = center.y - 1; y <= center.y + 1; y++)
+        {
+            for (int x = center.x - 1; x <= center.x + 1; x++)
+            {
+                if (x < 0 || x >= BoardSize || y < 0 || y >= BoardSize)
+                    continue;
+
+                ClearMyBoardCell(x, y);
+            }
+        }
+    }
+
+    private void ClearMyBoardCell(int x, int y)
+    {
+        _myOccupied[x, y] = false;
+        _myObstacle[x, y] = false;
+        _myColors[x, y] = Color.clear;
+        _myBlockSprites[x, y] = null;
+        _boardItems[x, y] = BattleItemId.None;
+    }
+
     #endregion
 }

@@ -2577,7 +2577,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &623881399
 RectTransform:
   m_ObjectHideFlags: 0
@@ -6042,8 +6042,8 @@ MonoBehaviour:
   dragPreviewCellSize: 125
   dragPreviewSpacing: 1
   dragOffset: {x: 0, y: 180}
-  maxRounds: 3
-  defensePhaseSeconds: 3
+  maxRounds: 12
+  defensePhaseSeconds: 5
   playPhaseSeconds: 30
   resolvePhaseSeconds: 0.2
   attackDropWeight: 0.44
@@ -8035,7 +8035,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 499(+12)
+  m_text: 4299(+12)
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 5bbff4e78f2634c139739f1d90982c46, type: 2}
   m_sharedMaterial: {fileID: 7512481295523713106, guid: 5bbff4e78f2634c139739f1d90982c46, type: 2}

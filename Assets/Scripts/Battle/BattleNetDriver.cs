@@ -351,6 +351,18 @@ public class BattleNetDriver : MonoBehaviour
                             break;
                         }
 
+                    case PacketOp.ItemUse:
+                        {
+                            BattleManager.BattleItemId itemId = (BattleManager.BattleItemId)br.ReadInt32();
+
+                            Log($"[RECV] ITEM_USE / from={fromSessionId} / item={itemId}");
+
+                            if (battleManager != null)
+                                battleManager.OnNetworkItemUseReceived(itemId);
+
+                            break;
+                        }
+
                     case PacketOp.BoardSnapshot:
                         {
                             int remaining = (int)(ms.Length - ms.Position);
@@ -1117,5 +1129,39 @@ public class BattleNetDriver : MonoBehaviour
             return ExtractSessionIdValue(sessionInfo);
 
         return default;
+    }
+
+    public bool SendItemUseAttack(BattleManager.BattleItemId itemId)
+    {
+        if (!_battleStarted)
+        {
+            LogError("ITEM_USE 전송 실패", "아직 배틀 시작 전");
+            return false;
+        }
+
+        if (!_joinedRoom)
+        {
+            LogError("ITEM_USE 전송 실패", "아직 게임방 입장 전");
+            return false;
+        }
+
+        byte[] packet = BuildItemUsePacket(itemId);
+
+        if (!SendPacket(packet))
+            return false;
+
+        Log($"[SEND] ITEM_USE / mySession={BattleMatchSession.MySessionId} / item={itemId}");
+        return true;
+    }
+
+    private byte[] BuildItemUsePacket(BattleManager.BattleItemId itemId)
+    {
+        using (MemoryStream ms = new MemoryStream())
+        using (BinaryWriter bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)PacketOp.ItemUse);
+            bw.Write((int)itemId);
+            return ms.ToArray();
+        }
     }
 }
