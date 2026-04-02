@@ -12,8 +12,6 @@ public class DraggableBlockView : MonoBehaviour, IBeginDragHandler, IDragHandler
 
     public RectTransform RectTransform => transform as RectTransform;
 
-   
-
     private Vector2 _lastDragScreenPos;
     private bool _hasLastDragScreenPos;
 
@@ -23,6 +21,7 @@ public class DraggableBlockView : MonoBehaviour, IBeginDragHandler, IDragHandler
     {
         EnsureSealOverlay();
     }
+
     public void Setup(BattleManager owner, int slotIndex)
     {
         _owner = owner;
@@ -40,6 +39,7 @@ public class DraggableBlockView : MonoBehaviour, IBeginDragHandler, IDragHandler
         if (backgroundImage != null)
             backgroundImage.color = color;
     }
+
     public void SetSealOverlay(bool show, Sprite sprite)
     {
         EnsureSealOverlay();
@@ -47,15 +47,14 @@ public class DraggableBlockView : MonoBehaviour, IBeginDragHandler, IDragHandler
         if (sealOverlayImage == null)
             return;
 
-        // 항상 맨 위로
         sealOverlayImage.transform.SetAsLastSibling();
-
         sealOverlayImage.sprite = sprite;
         sealOverlayImage.color = Color.white;
         sealOverlayImage.preserveAspect = true;
         sealOverlayImage.enabled = show && sprite != null;
         sealOverlayImage.gameObject.SetActive(show && sprite != null);
     }
+
     private void EnsureSealOverlay()
     {
         if (sealOverlayImage != null)
@@ -89,18 +88,20 @@ public class DraggableBlockView : MonoBehaviour, IBeginDragHandler, IDragHandler
         sealOverlayImage.enabled = false;
         sealOverlayImage.transform.SetAsLastSibling();
     }
+
     public void OnBeginDrag(PointerEventData eventData)
     {
+        if (_owner == null || !_owner.CanAcceptUserInput())
+            return;
+
         _hasLastDragScreenPos = false;
         _lastDragScreenPos = eventData.position;
-
-        if (_owner != null)
-            _owner.OnBeginDragSlot(_slotIndex, eventData);
+        _owner.OnBeginDragSlot(_slotIndex, eventData);
     }
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (_owner == null)
+        if (_owner == null || !_owner.CanAcceptUserInput())
             return;
 
         Vector2 currentPos = eventData.position;
@@ -124,7 +125,9 @@ public class DraggableBlockView : MonoBehaviour, IBeginDragHandler, IDragHandler
     {
         _hasLastDragScreenPos = false;
 
-        if (_owner != null)
-            _owner.OnEndDragSlot(_slotIndex, eventData);
-    }    
+        if (_owner == null || !_owner.CanAcceptUserInput())
+            return;
+
+        _owner.OnEndDragSlot(_slotIndex, eventData);
+    }
 }

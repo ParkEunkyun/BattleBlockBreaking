@@ -23,6 +23,9 @@ public class BattleNetDriver : MonoBehaviour
         ItemUse = 23,
         AttackIntent = 24,
         AttackOutcome = 25,
+        DisconnectPause = 26,
+        DisconnectResume = 27,
+        DisconnectForfeit = 28,
         Result = 90,
     }
 
@@ -57,10 +60,15 @@ public class BattleNetDriver : MonoBehaviour
     private bool _remoteRoundReadyReceived;
 
     private bool _matchEndSent;
+
+    private BattleDisconnectHandler _disconnectHandler;
     private void Awake()
     {
         if (battleManager == null)
             battleManager = GetComponent<BattleManager>();
+
+        if (_disconnectHandler == null)
+            _disconnectHandler = GetComponent<BattleDisconnectHandler>();
     }
 
     private void Start()
@@ -248,6 +256,12 @@ public class BattleNetDriver : MonoBehaviour
         {
             string offlineSessionId = ExtractSessionId(ReadMember(args, "SessionInfo"));
             LogError("세션 오프라인 감지", offlineSessionId);
+
+            if (!string.IsNullOrWhiteSpace(offlineSessionId) &&
+                offlineSessionId == BattleMatchSession.OpponentSessionId)
+            {
+                _disconnectHandler?.NotifyRemoteTemporaryLeave("OnSessionOffline");
+            }
         };
 
         Backend.Match.OnMatchResult = args =>
@@ -402,6 +416,41 @@ public class BattleNetDriver : MonoBehaviour
 
                             break;
                         }
+
+                    case PacketOp.DisconnectPause:
+                        {
+                            Log($"[RECV] DISCONNECT_PAUSE / from={fromSessionId}");
+
+                            if (!string.IsNullOrWhiteSpace(fromSessionId))
+                                BattleMatchSession.OpponentSessionId = fromSessionId;
+
+                            _disconnectHandler?.NotifyRemoteTemporaryLeave("packet");
+                            break;
+                        }
+
+                    case PacketOp.DisconnectResume:
+                        {
+                            Log($"[RECV] DISCONNECT_RESUME / from={fromSessionId}");
+
+                            if (!string.IsNullOrWhiteSpace(fromSessionId))
+                                BattleMatchSession.OpponentSessionId = fromSessionId;
+
+                            _disconnectHandler?.NotifyRemoteReturn("packet");
+                            break;
+                        }
+
+                    case PacketOp.DisconnectForfeit:
+                        {
+                            Log($"[RECV] DISCONNECT_FORFEIT / from={fromSessionId}");
+
+                            if (!string.IsNullOrWhiteSpace(fromSessionId))
+                                BattleMatchSession.OpponentSessionId = fromSessionId;
+
+                            _matchEndSent = true;
+                            _disconnectHandler?.NotifyRemoteForfeit("packet");
+                            break;
+                        }
+
                     default:
                         {
                             Log($"알 수 없는 패킷 수신 / op={(byte)op}");
@@ -599,6 +648,72 @@ public class BattleNetDriver : MonoBehaviour
         using (BinaryWriter bw = new BinaryWriter(ms))
         {
             bw.Write((byte)PacketOp.RoundReady);
+            return ms.ToArray();
+        }
+    }
+
+    public void SendDisconnectPause()
+    {
+        if (!CanSendDisconnectPacket())
+            return;
+
+        byte[] packet = BuildDisconnectPacket(PacketOp.DisconnectPause);
+        if (SendPacket(packet))
+        {
+            Log($"[SEND] DISCONNECT_PAUSE / mySession={BattleMatchSession.MySessionId}");
+        }
+    }
+
+    public void SendDisconnectResume()
+    {
+        if (!CanSendDisconnectPacket())
+            return;
+
+        byte[] packet = BuildDisconnectPacket(PacketOp.DisconnectResume);
+        if (SendPacket(packet))
+        {
+            Log($"[SEND] DISCONNECT_RESUME / mySession={BattleMatchSession.MySessionId}");
+        }
+    }
+
+    public void SendDisconnectForfeit()
+    {
+        if (!CanSendDisconnectPacket())
+            return;
+
+        byte[] packet = BuildDisconnectPacket(PacketOp.DisconnectForfeit);
+        if (SendPacket(packet))
+        {
+            _matchEndSent = true;
+            Log($"[SEND] DISCONNECT_FORFEIT / mySession={BattleMatchSession.MySessionId}");
+        }
+    }
+
+    public void MarkMatchEndedByDisconnect()
+    {
+        _matchEndSent = true;
+    }
+
+    private bool CanSendDisconnectPacket()
+    {
+        if (!_battleStarted)
+            return false;
+
+        if (!_joinedRoom)
+            return false;
+
+        if (_matchEndSent)
+            return false;
+
+        return true;
+    }
+
+    private byte[] BuildDisconnectPacket(PacketOp op)
+    {
+        using (MemoryStream ms = new MemoryStream())
+        using (BinaryWriter bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)op);
             return ms.ToArray();
         }
     }

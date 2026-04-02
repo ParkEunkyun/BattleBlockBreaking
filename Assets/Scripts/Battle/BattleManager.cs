@@ -349,9 +349,112 @@ public class BattleManager : MonoBehaviour
     [SerializeField] private int _networkSeed;
     private bool IsRankedBattle => BattleMatchSession.Mode == GameMode.Ranked;
 
+    [Header("Disconnect Runtime")]
+    [SerializeField] private bool _disconnectPauseActive;
+    [SerializeField] private bool _disconnectInputLocked;
+
+    private bool _forcedDisconnectResultActive;
+    private bool _forcedDisconnectLocalLose;
+    private string _forcedDisconnectReason = string.Empty;
+
     public int GetMyScoreForNetwork()
     {
         return _myScore;
+    }
+
+    public bool IsBattleActiveForDisconnect()
+    {
+        if (IsRankedBattle && !_networkGameStarted)
+            return false;
+
+        if (_resultPhaseRoot != null && _resultPhaseRoot.activeSelf)
+            return false;
+
+        return true;
+    }
+
+    public bool CanAcceptUserInput()
+    {
+        if (_disconnectPauseActive)
+            return false;
+
+        if (_disconnectInputLocked)
+            return false;
+
+        if (_resultPhaseRoot != null && _resultPhaseRoot.activeSelf)
+            return false;
+
+        return true;
+    }
+
+    public void SetDisconnectPauseState(bool paused)
+    {
+        _disconnectPauseActive = paused;
+        _disconnectInputLocked = paused;
+
+        if (paused)
+            CancelDisconnectDrag();
+
+        SetDisconnectButtonInteractable(!paused);
+    }
+
+    public void ForceDisconnectResult(bool localPlayerLose, string reason)
+    {
+        if (_forcedDisconnectResultActive)
+            return;
+
+        _forcedDisconnectResultActive = true;
+        _forcedDisconnectLocalLose = localPlayerLose;
+        _forcedDisconnectReason = string.IsNullOrWhiteSpace(reason) ? string.Empty : reason;
+
+        _disconnectPauseActive = false;
+        _disconnectInputLocked = true;
+
+        CancelDisconnectDrag();
+        SetDisconnectButtonInteractable(false);
+
+        // 기존 EndBattle() 흐름을 그대로 타기 위해 승패만 1점 보정으로 강제
+        if (localPlayerLose)
+        {
+            if (_myScore >= opponentScore)
+                opponentScore = _myScore + 1;
+        }
+        else
+        {
+            if (_myScore <= opponentScore)
+                _myScore = opponentScore + 1;
+        }
+
+        RefreshTopHud();
+        EndBattle();
+    }
+
+    private void SetDisconnectButtonInteractable(bool canInteract)
+    {
+        if (roundEndButton != null)
+            roundEndButton.interactable = canInteract;
+
+        if (_useDefenseButton != null)
+            _useDefenseButton.interactable = canInteract;
+
+        if (_skipDefenseButton != null)
+            _skipDefenseButton.interactable = canInteract;
+
+        for (int i = 0; i < _ownedItemButtons.Length; i++)
+        {
+            if (_ownedItemButtons[i] != null)
+                _ownedItemButtons[i].interactable = canInteract;
+        }
+    }
+
+    private void CancelDisconnectDrag()
+    {
+        _dragSlotIndex = -1;
+        _dragCanPlace = false;
+        _dragHasAnchor = false;
+
+        if (_dragPreviewRoot != null)
+            _dragPreviewRoot.gameObject.SetActive(false);
     }
 
     [SerializeField] private TMP_Text resultMmrText;
@@ -402,6 +505,9 @@ public class BattleManager : MonoBehaviour
     private void Update()
     {
         if (IsRankedBattle && !_networkGameStarted)
+            return;
+
+        if (_disconnectPauseActive)
             return;
 
         _phaseTimer -= Time.deltaTime;
@@ -1154,7 +1260,10 @@ public class BattleManager : MonoBehaviour
     }
 
     private void UseDefenseItemNow()
-    {  
+    {
+        if (!CanAcceptUserInput())
+            return;
+
         if (_phase != BattlePhase.Defense)
             return;
 
@@ -1218,6 +1327,9 @@ public class BattleManager : MonoBehaviour
 
     private void SkipDefenseNow()
     {
+        if (!CanAcceptUserInput())
+            return;
+
         if (_isResolvingDefenseFx)
             return;
 
@@ -1356,6 +1468,9 @@ public class BattleManager : MonoBehaviour
 
     public void OnBeginDragSlot(int slotIndex, PointerEventData eventData)
     {
+        if (!CanAcceptUserInput())
+            return;
+
         if (_isResolvingLineClearFx)
             return;
 
@@ -1388,6 +1503,9 @@ public class BattleManager : MonoBehaviour
 
     public void OnDragSlot(int slotIndex, PointerEventData eventData)
     {
+        if (!CanAcceptUserInput())
+            return;
+
         if (_isResolvingLineClearFx)
             return;
 
@@ -1403,6 +1521,9 @@ public class BattleManager : MonoBehaviour
 
     public void OnEndDragSlot(int slotIndex, PointerEventData eventData)
     {
+        if (!CanAcceptUserInput())
+            return;
+
         if (IsRankedBattle && !_networkGameStarted)
             return;
 
@@ -1735,6 +1856,9 @@ public class BattleManager : MonoBehaviour
 
     private void OnClickOwnedItem(int slotIndex)
     {
+        if (!CanAcceptUserInput())
+            return;
+
         if (_isResolvingLineClearFx)
             return;
 
@@ -2923,6 +3047,9 @@ public class BattleManager : MonoBehaviour
 
     private void RequestRoundEnd()
     {
+        if (!CanAcceptUserInput())
+            return;
+
         if (_isResolvingLineClearFx)
             return;
 
