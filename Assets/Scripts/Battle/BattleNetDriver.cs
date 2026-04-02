@@ -21,6 +21,8 @@ public class BattleNetDriver : MonoBehaviour
         BoardSnapshot = 21,
         ScoreSync = 22,
         ItemUse = 23,
+        AttackIntent = 24,
+        AttackOutcome = 25,
         Result = 90,
     }
 
@@ -376,6 +378,30 @@ public class BattleNetDriver : MonoBehaviour
                             break;
                         }
 
+                    case PacketOp.AttackIntent:
+                        {
+                            BattleManager.BattleItemId itemId = (BattleManager.BattleItemId)br.ReadInt32();
+                            bool isReserved = br.ReadBoolean();
+
+                            Log($"[RECV] ATTACK_INTENT / from={fromSessionId} / item={itemId} / reserved={isReserved}");
+
+                            if (battleManager != null)
+                                battleManager.OnNetworkAttackIntentReceived(itemId, isReserved);
+
+                            break;
+                        }
+
+                    case PacketOp.AttackOutcome:
+                        {
+                            bool wasBlocked = br.ReadBoolean();
+
+                            Log($"[RECV] ATTACK_OUTCOME / from={fromSessionId} / blocked={wasBlocked}");
+
+                            if (battleManager != null)
+                                battleManager.OnNetworkAttackOutcomeReceived(wasBlocked);
+
+                            break;
+                        }
                     default:
                         {
                             Log($"알 수 없는 패킷 수신 / op={(byte)op}");
@@ -1161,6 +1187,75 @@ public class BattleNetDriver : MonoBehaviour
         {
             bw.Write((byte)PacketOp.ItemUse);
             bw.Write((int)itemId);
+            return ms.ToArray();
+        }
+    }
+
+    public bool SendAttackIntent(BattleManager.BattleItemId itemId, bool isReserved)
+    {
+        if (!_battleStarted)
+        {
+            LogError("ATTACK_INTENT 전송 실패", "아직 배틀 시작 전");
+            return false;
+        }
+
+        if (!_joinedRoom)
+        {
+            LogError("ATTACK_INTENT 전송 실패", "아직 게임방 입장 전");
+            return false;
+        }
+
+        byte[] packet = BuildAttackIntentPacket(itemId, isReserved);
+
+        if (!SendPacket(packet))
+            return false;
+
+        Log($"[SEND] ATTACK_INTENT / mySession={BattleMatchSession.MySessionId} / item={itemId} / reserved={isReserved}");
+        return true;
+    }
+
+    private byte[] BuildAttackIntentPacket(BattleManager.BattleItemId itemId, bool isReserved)
+    {
+        using (MemoryStream ms = new MemoryStream())
+        using (BinaryWriter bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)PacketOp.AttackIntent);
+            bw.Write((int)itemId);
+            bw.Write(isReserved);
+            return ms.ToArray();
+        }
+    }
+
+    public bool SendAttackOutcome(bool wasBlocked)
+    {
+        if (!_battleStarted)
+        {
+            LogError("ATTACK_OUTCOME 전송 실패", "아직 배틀 시작 전");
+            return false;
+        }
+
+        if (!_joinedRoom)
+        {
+            LogError("ATTACK_OUTCOME 전송 실패", "아직 게임방 입장 전");
+            return false;
+        }
+
+        byte[] packet = BuildAttackOutcomePacket(wasBlocked);
+
+        if (!SendPacket(packet))
+            return false;
+
+        Log($"[SEND] ATTACK_OUTCOME / mySession={BattleMatchSession.MySessionId} / blocked={wasBlocked}");
+        return true;
+    }
+
+    private byte[] BuildAttackOutcomePacket(bool wasBlocked)
+    {
+        using (MemoryStream ms = new MemoryStream())
+        using (BinaryWriter bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)PacketOp.AttackOutcome);
+            bw.Write(wasBlocked);
             return ms.ToArray();
         }
     }

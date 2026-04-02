@@ -191,6 +191,8 @@ public class LobbyManager : MonoBehaviour
 
         ApplyRankedRecordUi();
         RankedRecordService.RefreshMyRankedRecord();
+
+        AdMobManager.Instance.ShowBannerBottom();
     }
     private void OnDestroy()
     {

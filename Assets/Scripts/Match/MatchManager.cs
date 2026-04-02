@@ -456,6 +456,7 @@ public class MatchManager : MonoBehaviour
             enabled = false;
 
             Log($"배틀씬 진입 -> {battleSceneName}");
+            AdMobManager.Instance.HideBanner();
             SceneManager.LoadScene(battleSceneName);
         }
         catch (Exception e)
@@ -605,6 +606,13 @@ public class MatchManager : MonoBehaviour
         if (!TryParseMatchEnums(out matchType, out modeType))
             return false;
 
+        // 실제 매칭 성공 시 서버가 내려준 카드 inDate를 최우선 사용
+        if (!string.IsNullOrWhiteSpace(BattleMatchSession.MatchCardInDate))
+        {
+            matchCardInDate = BattleMatchSession.MatchCardInDate;
+            return true;
+        }
+
         if (string.IsNullOrWhiteSpace(rankedMatchCardInDate))
         {
             if (!autoResolveMatchCardInDate)
@@ -617,5 +625,4 @@ public class MatchManager : MonoBehaviour
         matchCardInDate = rankedMatchCardInDate;
         return !string.IsNullOrWhiteSpace(matchCardInDate);
     }
-
 }

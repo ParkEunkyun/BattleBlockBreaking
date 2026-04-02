@@ -225,6 +225,25 @@ public class BattleManager : MonoBehaviour
     [SerializeField] private GameObject loadingRoot;
     [SerializeField] private TMP_Text loadingText;
 
+    [Header("Attack Telegraph / FX")]
+    [SerializeField] private BattleAttackTelegraphView _incomingAttackTelegraphView;
+    [SerializeField] private BattleMiniBoardFx _opponentMiniBoardFx;
+
+    private BattleItemId _remotePlannedAttackItem = BattleItemId.None;
+    private bool _remoteAttackPlannedVisible = false;
+
+    [Header("Line Clear FX")]
+    [SerializeField] private BattleLineClearFx _lineClearFx;
+    private bool _isResolvingLineClearFx;
+
+    [Header("Defense FX")]
+    [SerializeField] private BattleDefenseBoardFx _myBoardDefenseFx;
+    private bool _isResolvingDefenseFx;
+
+    [Header("Incoming Attack FX")]
+    [SerializeField] private BattleIncomingAttackFx _incomingAttackFx;
+    private bool _isResolvingIncomingAttackFx;
+
     private Coroutine _loadingHideRoutine;
 
     private GameObject _resultPhaseRoot;
@@ -242,9 +261,9 @@ public class BattleManager : MonoBehaviour
     private const string RuntimePrefix = "BBB_RT_";
 
     private static readonly Color32 EmptySlotColor = new Color32(255, 255, 255, 255);
-    private static readonly Color32 AttackSlotColor = new Color32(255, 100, 100, 255);
-    private static readonly Color32 SupportSlotColor = new Color32(255, 203, 100, 255);
-    private static readonly Color32 DefenseSlotColor = new Color32(100, 105, 255, 255);
+    private static readonly Color32 AttackSlotColor = new Color32(255, 255, 255, 255); //new Color32(255, 100, 100, 255);
+    private static readonly Color32 SupportSlotColor = new Color32(255, 255, 255, 255); //new Color32(255, 203, 100, 255);
+    private static readonly Color32 DefenseSlotColor = new Color32(255, 255, 255, 255); //new Color32(100, 105, 255, 255);
     private static readonly Color32 BoardBaseColor = new Color32(255, 255, 255, 255); //new Color32(36, 38, 56, 255);
     private static readonly Color32 ObstacleColor = new Color32(62, 63, 72, 255);
     private static readonly Color32 SealedSlotColor = new Color32(140, 100, 220, 255);
@@ -364,6 +383,8 @@ public class BattleManager : MonoBehaviour
         HideResultPhase();
         RefreshOwnedItemUI();
         RefreshTopHud();
+
+        _reservedOutgoingOwnedItemId = -1;
 
         if (roundEndButton != null)
             roundEndButton.gameObject.SetActive(false);
@@ -944,6 +965,7 @@ public class BattleManager : MonoBehaviour
         _localRoundReady = false;
         _opponentRoundReady = false;
         _waitingForOpponentRoundReady = false;
+        _reservedOutgoingOwnedItemId = -1;
 
         if (_round > maxRounds)
         {
@@ -953,7 +975,7 @@ public class BattleManager : MonoBehaviour
 
         _pendingResolveScore = 0;
 
-        ApplyReservedOutgoingAttack();
+        // ApplyReservedOutgoingAttack();
         ResetCurrentRoundBlocks();
         RefreshOwnedItemUI();
         RefreshBoardVisual();
@@ -961,9 +983,15 @@ public class BattleManager : MonoBehaviour
         RefreshTopHud();
 
         if (_incomingAttackItem != BattleItemId.None)
+        {
+            _remotePlannedAttackItem = BattleItemId.None;
+            RefreshIncomingAttackTelegraph();
             ShowDefensePhase();
+        }
         else
+        {
             BeginPlayableRound();
+        }
     }
 
     private void BeginPlayableRound()
@@ -1056,21 +1084,19 @@ public class BattleManager : MonoBehaviour
 
     private void UpdatePlayPhase()
     {
-        if (_waitingForOpponentRoundReady || _roundSyncAdvanceQueued)
-        {
-            return;
-        }
-
         if (_timerText != null)
-            _timerText.text = $"{Mathf.CeilToInt(_phaseTimer)}";
+            _timerText.text = $"{Mathf.Max(0, Mathf.CeilToInt(_phaseTimer))}";
+
+        RefreshRoundEndButtonUI();
+
+        if (_waitingForOpponentRoundReady || _roundSyncAdvanceQueued)
+            return;
 
         if (_phaseTimer <= 0f || AllBlocksUsed())
         {
             RequestRoundEnd();
             return;
         }
-
-        RefreshRoundEndButtonUI();
     }
 
     private void UpdateResolvePhase()
@@ -1128,8 +1154,14 @@ public class BattleManager : MonoBehaviour
     }
 
     private void UseDefenseItemNow()
-    {
+    {  
         if (_phase != BattlePhase.Defense)
+            return;
+
+        if (_isResolvingIncomingAttackFx)
+            return;
+
+        if (_isResolvingDefenseFx)
             return;
 
         if (_incomingAttackItem == BattleItemId.None)
@@ -1146,7 +1178,19 @@ public class BattleManager : MonoBehaviour
             return;
         }
 
+        StartCoroutine(CoUseDefenseItemNow(defenseIndex));
+    }
+
+    private IEnumerator CoUseDefenseItemNow(int defenseIndex)
+    {
+        _isResolvingDefenseFx = true;
+
         _ownedItems.RemoveAt(defenseIndex);
+
+        // 상대 화면의 미니보드 방어 FX는 기존대로 유지
+        if (IsRankedBattle && _battleNetDriver != null)
+            _battleNetDriver.SendAttackOutcome(true);
+
         _incomingAttackItem = BattleItemId.None;
 
         RefreshOwnedItemUI();
@@ -1155,23 +1199,90 @@ public class BattleManager : MonoBehaviour
         RefreshOpponentMiniBoard();
 
         HideDefensePhase();
+
+        if (_myBoardDefenseFx != null)
+            yield return StartCoroutine(_myBoardDefenseFx.PlayRoutine());
+        else
+            yield return new WaitForSeconds(0.2f);
+
+        RefreshOwnedItemUI();
+        RefreshDefenseUI();
+        RefreshBoardVisual();
+        RefreshOpponentMiniBoard();
+        RefreshTopHud();
+
+        _isResolvingDefenseFx = false;
+
         BeginPlayableRound();
     }
 
     private void SkipDefenseNow()
     {
+        if (_isResolvingDefenseFx)
+            return;
+
+        if (_isResolvingIncomingAttackFx)
+            return;
+
         if (_phase != BattlePhase.Defense)
             return;
 
         BattleItemId pendingAttack = _incomingAttackItem;
         _incomingAttackItem = BattleItemId.None;
 
-        if (pendingAttack != BattleItemId.None)
-            ApplyIncomingAttackToMyBoard(pendingAttack);
+        if (pendingAttack == BattleItemId.None)
+        {
+            HideDefensePhase();
+            BeginPlayableRound();
+            return;
+        }
 
-        RefreshDefenseUI();
+        StartCoroutine(CoResolveIncomingAttackAfterDefenseFailed(pendingAttack));
+    }
+    private IEnumerator CoResolveIncomingAttackAfterDefenseFailed(BattleItemId pendingAttack)
+    {
+        _isResolvingIncomingAttackFx = true;
+
+        if (IsRankedBattle && _battleNetDriver != null)
+            _battleNetDriver.SendAttackOutcome(false);
 
         HideDefensePhase();
+        RefreshDefenseUI();
+        RefreshTopHud();
+
+        bool applied = false;
+
+        if (_incomingAttackFx != null)
+        {
+            yield return StartCoroutine(_incomingAttackFx.PlayRoutine(
+                pendingAttack,
+                () =>
+                {
+                    if (applied)
+                        return;
+
+                    applied = true;
+                    ApplyIncomingAttackToMyBoard(pendingAttack);
+                }));
+        }
+        else
+        {
+            ApplyIncomingAttackToMyBoard(pendingAttack);
+            applied = true;
+            yield return new WaitForSeconds(0.18f);
+        }
+
+        if (!applied)
+            ApplyIncomingAttackToMyBoard(pendingAttack);
+
+        RefreshOwnedItemUI();
+        RefreshDefenseUI();
+        RefreshBoardVisual();
+        RefreshOpponentMiniBoard();
+        RefreshTopHud();
+
+        _isResolvingIncomingAttackFx = false;
+
         BeginPlayableRound();
     }
 
@@ -1245,6 +1356,9 @@ public class BattleManager : MonoBehaviour
 
     public void OnBeginDragSlot(int slotIndex, PointerEventData eventData)
     {
+        if (_isResolvingLineClearFx)
+            return;
+
         if (IsRankedBattle && !_networkGameStarted)
             return;
 
@@ -1274,6 +1388,9 @@ public class BattleManager : MonoBehaviour
 
     public void OnDragSlot(int slotIndex, PointerEventData eventData)
     {
+        if (_isResolvingLineClearFx)
+            return;
+
         if (IsRankedBattle && !_networkGameStarted)
             return;
 
@@ -1305,6 +1422,9 @@ public class BattleManager : MonoBehaviour
 
     private void UpdateDrag(PointerEventData eventData)
     {
+        if (_isResolvingLineClearFx)
+            return;
+
         if (_dragPreviewRoot == null)
             return;
 
@@ -1358,6 +1478,9 @@ public class BattleManager : MonoBehaviour
 
             if (_myOccupied[x, y])
                 return false;
+
+            if (_myObstacle[x, y])
+                return false;
         }
 
         return true;
@@ -1365,9 +1488,20 @@ public class BattleManager : MonoBehaviour
 
     private void PlaceBlock(int slotIndex, Vector2Int anchor)
     {
+        if (_isResolvingLineClearFx)
+            return;
+
+        StartCoroutine(CoPlaceBlockAndResolveLines(slotIndex, anchor));
+    }
+
+    private IEnumerator CoPlaceBlockAndResolveLines(int slotIndex, Vector2Int anchor)
+    {
         BlockInstance block = _currentBlocks[slotIndex];
         if (block == null)
-            return;
+            yield break;
+
+        if (!CanPlaceBlock(block, anchor.x, anchor.y))
+            yield break;
 
         for (int i = 0; i < block.cells.Count; i++)
         {
@@ -1375,30 +1509,126 @@ public class BattleManager : MonoBehaviour
             int y = anchor.y + block.cells[i].y;
 
             _myOccupied[x, y] = true;
-            _myObstacle[x, y] = false;
             _myColors[x, y] = block.color;
             _myBlockSprites[x, y] = block.cellSprite;
         }
 
-        int clearCount = ClearCompletedLinesAndCollectItems();
-        int gainedScore = GetScore(clearCount);
-        _myScore += gainedScore;
-        _pendingResolveScore += gainedScore;
-
         _currentBlocks[slotIndex] = null;
 
         DrawBlockPreview(slotIndex);
+        RefreshBoardVisual();
+        RefreshSlotVisual();
+        RefreshTopHud();
+
+        List<int> completedRows = new List<int>();
+        List<int> completedCols = new List<int>();
+        CollectCompletedLinesForFx(completedRows, completedCols);
+
+        if (completedRows.Count > 0 || completedCols.Count > 0)
+        {
+            _isResolvingLineClearFx = true;
+
+            if (_lineClearFx != null)
+            {
+                yield return StartCoroutine(_lineClearFx.Play(
+                    completedRows,
+                    completedCols,
+                    (x, y) =>
+                    {
+                        ClearSingleCell(x, y, true);
+                        RefreshBoardVisual();
+                    }));
+            }
+            else
+            {
+                ClearCompletedLinesImmediateForFx(completedRows, completedCols);
+            }
+
+            int clearCount = completedRows.Count + completedCols.Count;
+            int gainedScore = GetScore(clearCount);
+
+            _myScore += gainedScore;
+            _pendingResolveScore += gainedScore;
+
+            _isResolvingLineClearFx = false;
+        }
+
         RefreshOwnedItemUI();
         RefreshBoardVisual();
         RefreshSlotVisual();
         RefreshTopHud();
 
-        if (AllBlocksUsed())
-            RequestRoundEnd();
+        if (IsRankedBattle && _battleNetDriver != null)
+        {
+            _battleNetDriver.SendBoardSnapshot();
+            _battleNetDriver.SendScoreSync(GetMyScoreForNetwork());
+        }
+    }
+    private void CollectCompletedLinesForFx(List<int> completedRows, List<int> completedCols)
+    {
+        completedRows.Clear();
+        completedCols.Clear();
 
-        RefreshRoundEndButtonUI();
+        for (int y = 0; y < BoardSize; y++)
+        {
+            bool full = true;
+
+            for (int x = 0; x < BoardSize; x++)
+            {
+                bool filled = _myOccupied[x, y] || _myObstacle[x, y];
+
+                if (!filled)
+                {
+                    full = false;
+                    break;
+                }
+            }
+
+            if (full)
+                completedRows.Add(y);
+        }
+
+        for (int x = 0; x < BoardSize; x++)
+        {
+            bool full = true;
+
+            for (int y = 0; y < BoardSize; y++)
+            {
+                bool filled = _myOccupied[x, y] || _myObstacle[x, y];
+
+                if (!filled)
+                {
+                    full = false;
+                    break;
+                }
+            }
+
+            if (full)
+                completedCols.Add(x);
+        }
     }
 
+    private void ClearCompletedLinesImmediateForFx(List<int> completedRows, List<int> completedCols)
+    {
+        HashSet<Vector2Int> cells = new HashSet<Vector2Int>();
+
+        for (int i = 0; i < completedRows.Count; i++)
+        {
+            int y = completedRows[i];
+            for (int x = 0; x < BoardSize; x++)
+                cells.Add(new Vector2Int(x, y));
+        }
+
+        for (int i = 0; i < completedCols.Count; i++)
+        {
+            int x = completedCols[i];
+            for (int y = 0; y < BoardSize; y++)
+                cells.Add(new Vector2Int(x, y));
+        }
+
+        foreach (Vector2Int cell in cells)
+            ClearSingleCell(cell.x, cell.y, true);
+    }
     private int ClearCompletedLinesAndCollectItems()
     {
         bool[] rowFull = new bool[BoardSize];
@@ -1505,6 +1735,9 @@ public class BattleManager : MonoBehaviour
 
     private void OnClickOwnedItem(int slotIndex)
     {
+        if (_isResolvingLineClearFx)
+            return;
+
         if (_localRoundReady)
             return;
 
@@ -1523,7 +1756,7 @@ public class BattleManager : MonoBehaviour
         switch (kind)
         {
             case ItemKind.Attack:
-                ToggleReserveAttack(owned.ownedId);
+                ToggleReserveAttack(owned.ownedId, owned.itemId);
                 break;
 
             case ItemKind.Support:
@@ -1532,12 +1765,25 @@ public class BattleManager : MonoBehaviour
         }
     }
 
-    private void ToggleReserveAttack(int ownedId)
+    private void ToggleReserveAttack(int ownedId, BattleItemId itemId)
     {
+        Debug.Log($"[BM] ToggleReserveAttack ownedId={ownedId} itemId={itemId} reservedBefore={_reservedOutgoingOwnedItemId}");
+
         if (_reservedOutgoingOwnedItemId == ownedId)
+        {
             _reservedOutgoingOwnedItemId = -1;
-        else
-            _reservedOutgoingOwnedItemId = ownedId;
+
+            if (IsRankedBattle && _battleNetDriver != null)
+                _battleNetDriver.SendAttackIntent(BattleItemId.None, false);
+
+            RefreshOwnedItemUI();
+            return;
+        }
+
+        _reservedOutgoingOwnedItemId = ownedId;
+
+        if (IsRankedBattle && _battleNetDriver != null)
+            _battleNetDriver.SendAttackIntent(itemId, true);
 
         RefreshOwnedItemUI();
     }
@@ -1716,6 +1962,10 @@ public class BattleManager : MonoBehaviour
         if (foundData == null)
         {
             _reservedOutgoingOwnedItemId = -1;
+
+            if (IsRankedBattle && _battleNetDriver != null)
+                _battleNetDriver.SendAttackIntent(BattleItemId.None, false);
+
             RefreshOwnedItemUI();
             return;
         }
@@ -1723,6 +1973,10 @@ public class BattleManager : MonoBehaviour
         if (GetItemKind(foundData.itemId) != ItemKind.Attack)
         {
             _reservedOutgoingOwnedItemId = -1;
+
+            if (IsRankedBattle && _battleNetDriver != null)
+                _battleNetDriver.SendAttackIntent(BattleItemId.None, false);
+
             RefreshOwnedItemUI();
             return;
         }
@@ -1735,7 +1989,6 @@ public class BattleManager : MonoBehaviour
         }
         else
         {
-            // 로컬 테스트용
             success = true;
 
             if (loopbackReservedAttackForDebug)
@@ -1744,6 +1997,10 @@ public class BattleManager : MonoBehaviour
 
         if (!success)
             return;
+
+        // 실제 공격이 발사됐으므로 상대의 "공격 예정" 표시는 꺼준다
+        if (IsRankedBattle && _battleNetDriver != null)
+            _battleNetDriver.SendAttackIntent(BattleItemId.None, false);
 
         _ownedItems.RemoveAt(foundIndex);
         _reservedOutgoingOwnedItemId = -1;
@@ -2666,6 +2923,9 @@ public class BattleManager : MonoBehaviour
 
     private void RequestRoundEnd()
     {
+        if (_isResolvingLineClearFx)
+            return;
+
         if (IsRankedBattle && !_networkGameStarted)
             return;
 
@@ -2749,6 +3009,15 @@ public class BattleManager : MonoBehaviour
         _roundReadySendIssued = true;
         _localRoundReady = true;
         _waitingForOpponentRoundReady = true;
+
+        // 공격 아이템은 라운드 종료 확정 시점에 상대에게 전송
+        ApplyReservedOutgoingAttack();
+
+        RefreshOwnedItemUI();
+        RefreshDefenseUI();
+        RefreshBoardVisual();
+        RefreshOpponentMiniBoard();
+        RefreshTopHud();
 
         if (_battleNetDriver != null)
         {
@@ -3167,15 +3436,7 @@ public class BattleManager : MonoBehaviour
         }
 
         resultMmrText.text = RankedRecordCache.GetFormattedMmrWithDelta();
-    }
-
-    public void OnNetworkItemUseReceived(BattleItemId itemId)
-    {
-        if (GetItemKind(itemId) != ItemKind.Attack)
-            return;
-
-        QueueIncomingAttack(itemId, false);
-    }
+    }    
 
     private int FindFirstDefenseOwnedItemIndex()
     {
@@ -3364,6 +3625,56 @@ public class BattleManager : MonoBehaviour
         _myColors[x, y] = Color.clear;
         _myBlockSprites[x, y] = null;
         _boardItems[x, y] = BattleItemId.None;
+    }
+
+    public void OnNetworkAttackIntentReceived(BattleItemId itemId, bool isReserved)
+    {
+        bool validAttack = itemId != BattleItemId.None && GetItemKind(itemId) == ItemKind.Attack;
+
+        _remoteAttackPlannedVisible = isReserved && validAttack;
+        _remotePlannedAttackItem = _remoteAttackPlannedVisible ? itemId : BattleItemId.None;
+
+        Debug.Log($"[BM] OnNetworkAttackIntentReceived item={itemId} reserved={isReserved} visible={_remoteAttackPlannedVisible}");
+
+        RefreshIncomingAttackTelegraph();
+    }
+
+    public void OnNetworkItemUseReceived(BattleItemId itemId)
+    {
+        if (GetItemKind(itemId) != ItemKind.Attack)
+            return;
+
+        // 이제 예정이 아니라 실제 공격이므로 예정 표시는 끈다
+        _remoteAttackPlannedVisible = false;
+        _remotePlannedAttackItem = BattleItemId.None;
+        RefreshIncomingAttackTelegraph();
+
+        QueueIncomingAttack(itemId, false);
+    }
+
+    private void RefreshIncomingAttackTelegraph()
+    {
+        if (_incomingAttackTelegraphView == null)
+            return;
+
+        if (!_remoteAttackPlannedVisible || _remotePlannedAttackItem == BattleItemId.None)
+        {
+            _incomingAttackTelegraphView.SetPlanned(false, BattleItemId.None);
+            return;
+        }
+
+        _incomingAttackTelegraphView.SetPlanned(true, _remotePlannedAttackItem);
+    }
+
+    public void OnNetworkAttackOutcomeReceived(bool wasBlocked)
+    {
+        if (_opponentMiniBoardFx == null)
+            return;
+
+        if (wasBlocked)
+            _opponentMiniBoardFx.PlayAttackBlockedFx();
+        else
+            _opponentMiniBoardFx.PlayAttackHitFx();
     }
 
     #endregion
