@@ -31,6 +31,9 @@ public class BattleDisconnectHandler : MonoBehaviour
     private bool _localPauseNotified;
     private long _localPauseUtcTicks;
 
+    private float _ignoreOfflineUntilUnscaledTime;
+    [SerializeField] private float ignoreOfflineCooldownSeconds = 2f;
+
     private void Awake()
     {
         if (battleManager == null)
@@ -58,9 +61,7 @@ public class BattleDisconnectHandler : MonoBehaviour
         RefreshOverlayText();
 
         if (_remoteRemainingSeconds <= 0f)
-        {
             HandleRemoteTimeout();
-        }
     }
 
     private void OnApplicationPause(bool pauseStatus)
@@ -113,11 +114,10 @@ public class BattleDisconnectHandler : MonoBehaviour
         if (_battleFinished)
             return;
 
-        if (!_remoteDisconnectActive)
-            return;
-
         _remoteDisconnectActive = false;
         _remoteRemainingSeconds = 0f;
+
+        IgnoreRemoteOfflineTemporarily(source);
 
         HideOverlayImmediate();
 
@@ -125,6 +125,52 @@ public class BattleDisconnectHandler : MonoBehaviour
             battleManager.SetDisconnectPauseState(false);
 
         Log($"Remote return / source={source}");
+    }
+    public void IgnoreRemoteOfflineTemporarily(string source = null)
+    {
+        _ignoreOfflineUntilUnscaledTime = Time.unscaledTime + ignoreOfflineCooldownSeconds;
+        Log($"Ignore remote offline until={_ignoreOfflineUntilUnscaledTime:0.00} / source={source}");
+    }
+
+    public bool ShouldIgnoreRemoteOffline()
+    {
+        return Time.unscaledTime < _ignoreOfflineUntilUnscaledTime;
+    }
+
+    public void ApplyRemoteDisconnectSync(bool paused, int phaseValue, float remainingSeconds, string source = null)
+    {
+        if (_battleFinished)
+            return;
+
+        if (battleManager != null)
+            battleManager.ApplyDisconnectSync(paused, phaseValue, remainingSeconds);
+
+        if (paused)
+        {
+            _remoteDisconnectActive = true;
+            _remoteRemainingSeconds = Mathf.Max(1f, disconnectGraceSeconds);
+            ShowOverlay();
+            RefreshOverlayText();
+        }
+        else
+        {
+            _remoteDisconnectActive = false;
+            _remoteRemainingSeconds = 0f;
+            HideOverlayImmediate();
+        }
+
+        Log($"Remote disconnect sync / source={source} / paused={paused} / phase={phaseValue} / remain={remainingSeconds:0.000}");
+    }
+
+    public void NotifyLocalReconnectCompleted(string source = null)
+    {
+        if (_battleFinished)
+            return;
+
+        if (battleManager != null)
+            battleManager.SetDisconnectPauseState(false);
+
+        Log($"Local reconnect completed / source={source}");
     }
 
     public void NotifyRemoteForfeit(string source = null)
@@ -170,6 +216,9 @@ public class BattleDisconnectHandler : MonoBehaviour
         _localPauseNotified = true;
         _localPauseUtcTicks = DateTime.UtcNow.Ticks;
 
+        if (battleManager != null)
+            battleManager.SetDisconnectPauseState(true);
+
         if (battleNetDriver != null)
             battleNetDriver.SendDisconnectPause();
 
@@ -188,9 +237,7 @@ public class BattleDisconnectHandler : MonoBehaviour
 
         double elapsedSeconds = 0d;
         if (_localPauseUtcTicks > 0L)
-        {
             elapsedSeconds = TimeSpan.FromTicks(DateTime.UtcNow.Ticks - _localPauseUtcTicks).TotalSeconds;
-        }
 
         Log($"Local resume notify / source={source} / elapsed={elapsedSeconds:0.00}s");
 
@@ -216,8 +263,19 @@ public class BattleDisconnectHandler : MonoBehaviour
             return;
         }
 
+        bool reconnectStarted = false;
+
         if (battleNetDriver != null)
-            battleNetDriver.SendDisconnectResume();
+            reconnectStarted = battleNetDriver.TryReconnectToActiveGame();
+
+        if (!reconnectStarted)
+        {
+            if (battleNetDriver != null)
+                battleNetDriver.SendDisconnectResume();
+
+            if (battleManager != null)
+                battleManager.SetDisconnectPauseState(false);
+        }
     }
 
     private void HandleRemoteTimeout()
@@ -282,9 +340,7 @@ public class BattleDisconnectHandler : MonoBehaviour
         }
 
         if (disconnectMessageText == null && disconnectOverlayRoot != null)
-        {
             disconnectMessageText = disconnectOverlayRoot.GetComponentInChildren<TMP_Text>(true);
-        }
     }
 
     private void Log(string msg)

@@ -361,7 +361,43 @@ public class BattleManager : MonoBehaviour
     {
         return _myScore;
     }
+    public int GetCurrentPhaseForNetwork()
+    {
+        return (int)_phase;
+    }
 
+    public float GetCurrentPhaseTimerForNetwork()
+    {
+        return _phaseTimer;
+    }
+
+    public void ApplyDisconnectSync(bool paused, int phaseValue, float remainingSeconds)
+    {
+        if (phaseValue >= 0 && phaseValue <= (int)BattlePhase.Resolve)
+            _phase = (BattlePhase)phaseValue;
+
+        _phaseTimer = Mathf.Max(0f, remainingSeconds);
+
+        SetDisconnectPauseState(paused);
+
+        if (_phase == BattlePhase.Defense)
+        {
+            if (_defensePhaseRoot != null)
+                _defensePhaseRoot.SetActive(true);
+
+            RefreshDefenseUI();
+        }
+        else
+        {
+            HideDefensePhase();
+        }
+
+        RefreshOwnedItemUI();
+        RefreshBoardVisual();
+        RefreshOpponentMiniBoard();
+        RefreshTopHud();
+        RefreshRoundEndButtonUI();
+    }
     public bool IsBattleActiveForDisconnect()
     {
         if (IsRankedBattle && !_networkGameStarted)

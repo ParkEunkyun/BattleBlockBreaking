@@ -26,6 +26,7 @@ public class BattleNetDriver : MonoBehaviour
         DisconnectPause = 26,
         DisconnectResume = 27,
         DisconnectForfeit = 28,
+        DisconnectSync = 29,
         Result = 90,
     }
 
@@ -60,6 +61,7 @@ public class BattleNetDriver : MonoBehaviour
     private bool _remoteRoundReadyReceived;
 
     private bool _matchEndSent;
+    private bool _reconnectRequested;
 
     private BattleDisconnectHandler _disconnectHandler;
     private void Awake()
@@ -202,7 +204,16 @@ public class BattleNetDriver : MonoBehaviour
 
             BattleMatchSession.MySession = rawSessionId;
 
-            JoinGameRoom();
+            if (_reconnectRequested)
+            {
+                // 여기서는 "서버 재접속 성공"까지만 처리
+                // 게임방 relay 준비 완료는 OnSessionListInServer 에서 마무리
+                Log("재접속용 OnSessionJoinInServer 성공 / room list 대기");
+            }
+            else
+            {
+                JoinGameRoom();
+            }
         };
 
         Backend.Match.OnSessionListInServer = args =>
@@ -210,15 +221,34 @@ public class BattleNetDriver : MonoBehaviour
             _joiningRoom = false;
             _joinedRoom = true;
 
-            // 문서상 OnSessionListInServer는 게임방 입장 성공 시에만 호출됨.
-            // 그래서 여기서는 실패 판정하지 말고, GameRecords 파싱에만 집중.
             int count = args.GameRecords != null ? args.GameRecords.Count : 0;
-
             Log($"OnSessionListInServer / joinedRoom=true / count={count}");
 
             TryResolveSessionsFromGameRecords(args.GameRecords);
-
             Log($"SessionResolved / my={BattleMatchSession.MySessionId} / opp={BattleMatchSession.OpponentSessionId} / isHost={BattleMatchSession.IsHost}");
+
+            if (_reconnectRequested)
+            {
+                _reconnectRequested = false;
+
+                _battleStarted = true;
+                _systemGameStarted = true;
+
+                if (battleManager != null)
+                {
+                    battleManager.ResetNetworkRoundSyncState();
+                }
+
+                _disconnectHandler?.NotifyLocalReconnectCompleted("OnSessionListInServer");
+
+                // 이제 진짜 게임방까지 다시 붙었으니 resume 전송
+                SendDisconnectResume();
+
+                if (BattleMatchSession.IsHost)
+                    SendDisconnectSync(false);
+
+                Log("재접속 완료 / room list 수신");
+            }
         };
 
         Backend.Match.OnMatchInGameStart = () =>
@@ -254,14 +284,54 @@ public class BattleNetDriver : MonoBehaviour
 
         Backend.Match.OnSessionOffline = args =>
         {
-            string offlineSessionId = ExtractSessionId(ReadMember(args, "SessionInfo"));
-            LogError("세션 오프라인 감지", offlineSessionId);
+            object sessionInfoObj = ReadMember(args, "SessionInfo");
+            string offlineSessionId = ExtractSessionId(sessionInfoObj);
 
-            if (!string.IsNullOrWhiteSpace(offlineSessionId) &&
-                offlineSessionId == BattleMatchSession.OpponentSessionId)
+            LogError("세션 오프라인 감지",
+                $"offline={offlineSessionId}, my={BattleMatchSession.MySessionId}, opp={BattleMatchSession.OpponentSessionId}");
+
+            if (_disconnectHandler == null)
+                _disconnectHandler = GetComponent<BattleDisconnectHandler>();
+
+            if (_disconnectHandler == null)
+                return;
+
+            if (_disconnectHandler.ShouldIgnoreRemoteOffline())
             {
-                _disconnectHandler?.NotifyRemoteTemporaryLeave("OnSessionOffline");
+                Log("OnSessionOffline 무시 / recent online-return cooldown");
+                return;
             }
+
+            bool hasOfflineId = !string.IsNullOrWhiteSpace(offlineSessionId);
+            bool isMySession = hasOfflineId && offlineSessionId == BattleMatchSession.MySessionId;
+            bool isOpponentSession = hasOfflineId && offlineSessionId == BattleMatchSession.OpponentSessionId;
+
+            if (isMySession)
+                return;
+
+            if (!hasOfflineId)
+            {
+                if (_battleStarted && _joinedRoom)
+                    _disconnectHandler.NotifyRemoteTemporaryLeave("OnSessionOffline(no session id)");
+                return;
+            }
+
+            if (isOpponentSession)
+                _disconnectHandler.NotifyRemoteTemporaryLeave("OnSessionOffline(opponent)");
+        };
+
+        Backend.Match.OnSessionOnline = args =>
+        {
+            object gameRecord = ReadMember(args, "GameRecord");
+            string onlineSessionId = ExtractSessionIdFromGameRecord(gameRecord);
+
+            Log($"OnSessionOnline / onlineSession={onlineSessionId}");
+
+            if (!string.IsNullOrWhiteSpace(onlineSessionId))
+                BattleMatchSession.OpponentSessionId = onlineSessionId;
+
+            // 오프라인 재감지만 잠깐 무시
+            _disconnectHandler?.IgnoreRemoteOfflineTemporarily("OnSessionOnline");
         };
 
         Backend.Match.OnMatchResult = args =>
@@ -294,6 +364,14 @@ public class BattleNetDriver : MonoBehaviour
             using (BinaryReader br = new BinaryReader(ms))
             {
                 PacketOp op = (PacketOp)br.ReadByte();
+
+                // 상대가 어떤 정상 패킷이든 다시 보내기 시작했다면 복귀한 것으로 간주
+                if (_disconnectHandler != null &&
+                    op != PacketOp.DisconnectPause &&
+                    op != PacketOp.DisconnectForfeit)
+                {
+                    _disconnectHandler.NotifyRemoteReturn($"implicit:{op}");
+                }
 
                 switch (op)
                 {
@@ -436,6 +514,10 @@ public class BattleNetDriver : MonoBehaviour
                                 BattleMatchSession.OpponentSessionId = fromSessionId;
 
                             _disconnectHandler?.NotifyRemoteReturn("packet");
+
+                            if (BattleMatchSession.IsHost)
+                                SendDisconnectSync(false);
+
                             break;
                         }
 
@@ -448,6 +530,18 @@ public class BattleNetDriver : MonoBehaviour
 
                             _matchEndSent = true;
                             _disconnectHandler?.NotifyRemoteForfeit("packet");
+                            break;
+                        }
+
+                    case PacketOp.DisconnectSync:
+                        {
+                            bool paused = br.ReadBoolean();
+                            int phaseValue = br.ReadInt32();
+                            float remainingSeconds = br.ReadSingle();
+
+                            Log($"[RECV] DISCONNECT_SYNC / from={fromSessionId} / paused={paused} / phase={phaseValue} / remain={remainingSeconds:0.000}");
+
+                            _disconnectHandler?.ApplyRemoteDisconnectSync(paused, phaseValue, remainingSeconds, "packet");
                             break;
                         }
 
@@ -689,9 +783,113 @@ public class BattleNetDriver : MonoBehaviour
         }
     }
 
+    public bool TryReconnectToActiveGame()
+    {
+        if (BattleMatchSession.Mode != GameMode.Ranked)
+            return false;
+
+        if (_matchEndSent)
+            return false;
+
+        try
+        {
+            BindEvents();
+            _pollEnabled = true;
+
+            BackendReturnObject bro = Backend.Match.IsGameRoomActivate();
+            if (bro == null || !bro.IsSuccess())
+            {
+                Log("재접속 가능한 활성 게임 없음");
+                return false;
+            }
+
+            var json = bro.GetReturnValuetoJSON();
+
+            string addr = json["serverPublicHostName"].ToString();
+            ushort port = Convert.ToUInt16(json["serverPort"].ToString());
+            string roomToken = json["roomToken"].ToString();
+
+            BattleMatchSession.InGameServerAddress = addr;
+            BattleMatchSession.InGameServerPort = port;
+            BattleMatchSession.InGameRoomToken = roomToken;
+
+            _reconnectRequested = true;
+
+            _joiningServer = true;
+            _joinedServer = false;
+            _joiningRoom = false;
+            _joinedRoom = false;
+
+            ErrorInfo errorInfo;
+            bool requested = Backend.Match.JoinGameServer(addr, port, true, out errorInfo);
+            if (!requested)
+            {
+                _reconnectRequested = false;
+                _joiningServer = false;
+                LogError("재접속 JoinGameServer 요청 실패", FormatErrorInfo(errorInfo));
+                return false;
+            }
+
+            Log($"재접속 JoinGameServer 요청 성공 / {addr}:{port}");
+            return true;
+        }
+        catch (Exception e)
+        {
+            _reconnectRequested = false;
+            _joiningServer = false;
+            LogError("재접속 예외", e.Message);
+            return false;
+        }
+    }
+
+    public void SendDisconnectSync(bool paused)
+    {
+        if (!_battleStarted)
+            return;
+
+        if (!_joinedRoom)
+            return;
+
+        if (_matchEndSent)
+            return;
+
+        if (battleManager == null)
+            battleManager = GetComponent<BattleManager>();
+
+        if (battleManager == null)
+            return;
+
+        int phaseValue = battleManager.GetCurrentPhaseForNetwork();
+        float remainingSeconds = battleManager.GetCurrentPhaseTimerForNetwork();
+
+        byte[] packet = BuildDisconnectSyncPacket(paused, phaseValue, remainingSeconds);
+        if (SendPacket(packet))
+        {
+            Log($"[SEND] DISCONNECT_SYNC / mySession={BattleMatchSession.MySessionId} / paused={paused} / phase={phaseValue} / remain={remainingSeconds:0.000}");
+        }
+    }
+
+    private byte[] BuildDisconnectSyncPacket(bool paused, int phaseValue, float remainingSeconds)
+    {
+        using (MemoryStream ms = new MemoryStream())
+        using (BinaryWriter bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)PacketOp.DisconnectSync);
+            bw.Write(paused);
+            bw.Write(phaseValue);
+            bw.Write(remainingSeconds);
+            return ms.ToArray();
+        }
+    }
+
     public void MarkMatchEndedByDisconnect()
     {
         _matchEndSent = true;
+    }
+
+    public bool IsLocalHostAuthority()
+    {
+        return BattleMatchSession.IsHost;
     }
 
     private bool CanSendDisconnectPacket()
