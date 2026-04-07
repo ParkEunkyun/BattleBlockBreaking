@@ -64,6 +64,14 @@ public class BattleNetDriver : MonoBehaviour
     private bool _reconnectRequested;
 
     private BattleDisconnectHandler _disconnectHandler;
+
+    [SerializeField] private float reconnectPacketRetryInterval = 0.25f;
+
+    private bool _pendingReconnectResume;
+    private bool _pendingReconnectSync;
+    private bool _pendingReconnectSyncPaused;
+    private float _nextReconnectPacketRetryUnscaled;
+
     private void Awake()
     {
         if (battleManager == null)
@@ -92,6 +100,8 @@ public class BattleNetDriver : MonoBehaviour
         {
             LogError("Poll 예외", e.Message);
         }
+
+        TryFlushReconnectPackets();
     }
 
     public void BeginRankedInGame()
@@ -190,8 +200,13 @@ public class BattleNetDriver : MonoBehaviour
 
             if (!success)
             {
+                bool wasReconnect = _reconnectRequested;
+
                 _joiningServer = false;
                 _joinedServer = false;
+                _joiningRoom = false;
+                _joinedRoom = false;
+                ClearReconnectPacketQueue();
                 LogError("인게임 서버 접속 실패", $"{category} / {reason}");
                 return;
             }
@@ -230,7 +245,6 @@ public class BattleNetDriver : MonoBehaviour
             if (_reconnectRequested)
             {
                 _reconnectRequested = false;
-
                 _battleStarted = true;
                 _systemGameStarted = true;
 
@@ -240,13 +254,6 @@ public class BattleNetDriver : MonoBehaviour
                 }
 
                 _disconnectHandler?.NotifyLocalReconnectCompleted("OnSessionListInServer");
-
-                // 이제 진짜 게임방까지 다시 붙었으니 resume 전송
-                SendDisconnectResume();
-
-                if (BattleMatchSession.IsHost)
-                    SendDisconnectSync(false);
-
                 Log("재접속 완료 / room list 수신");
             }
         };
@@ -324,14 +331,12 @@ public class BattleNetDriver : MonoBehaviour
         {
             object gameRecord = ReadMember(args, "GameRecord");
             string onlineSessionId = ExtractSessionIdFromGameRecord(gameRecord);
-
             Log($"OnSessionOnline / onlineSession={onlineSessionId}");
 
             if (!string.IsNullOrWhiteSpace(onlineSessionId))
                 BattleMatchSession.OpponentSessionId = onlineSessionId;
 
-            // 오프라인 재감지만 잠깐 무시
-            _disconnectHandler?.IgnoreRemoteOfflineTemporarily("OnSessionOnline");
+            _disconnectHandler?.NotifyRemoteReturn("OnSessionOnline");
         };
 
         Backend.Match.OnMatchResult = args =>
@@ -516,7 +521,7 @@ public class BattleNetDriver : MonoBehaviour
                             _disconnectHandler?.NotifyRemoteReturn("packet");
 
                             if (BattleMatchSession.IsHost)
-                                SendDisconnectSync(false);
+                                TrySendDisconnectSync(false);
 
                             break;
                         }
@@ -757,17 +762,18 @@ public class BattleNetDriver : MonoBehaviour
             Log($"[SEND] DISCONNECT_PAUSE / mySession={BattleMatchSession.MySessionId}");
         }
     }
-
-    public void SendDisconnectResume()
+    public bool TrySendDisconnectResume()
     {
         if (!CanSendDisconnectPacket())
-            return;
+            return false;
 
         byte[] packet = BuildDisconnectPacket(PacketOp.DisconnectResume);
-        if (SendPacket(packet))
-        {
-            Log($"[SEND] DISCONNECT_RESUME / mySession={BattleMatchSession.MySessionId}");
-        }
+
+        if (!SendPacket(packet))
+            return false;
+
+        Log($"[SEND] DISCONNECT_RESUME / mySession={BattleMatchSession.MySessionId}");
+        return true;
     }
 
     public void SendDisconnectForfeit()
@@ -813,6 +819,8 @@ public class BattleNetDriver : MonoBehaviour
             BattleMatchSession.InGameServerPort = port;
             BattleMatchSession.InGameRoomToken = roomToken;
 
+            ClearReconnectPacketQueue();
+
             _reconnectRequested = true;
 
             _joiningServer = true;
@@ -842,31 +850,32 @@ public class BattleNetDriver : MonoBehaviour
         }
     }
 
-    public void SendDisconnectSync(bool paused)
+    public bool TrySendDisconnectSync(bool paused)
     {
         if (!_battleStarted)
-            return;
+            return false;
 
         if (!_joinedRoom)
-            return;
+            return false;
 
         if (_matchEndSent)
-            return;
+            return false;
 
         if (battleManager == null)
             battleManager = GetComponent<BattleManager>();
 
         if (battleManager == null)
-            return;
+            return false;
 
         int phaseValue = battleManager.GetCurrentPhaseForNetwork();
         float remainingSeconds = battleManager.GetCurrentPhaseTimerForNetwork();
-
         byte[] packet = BuildDisconnectSyncPacket(paused, phaseValue, remainingSeconds);
-        if (SendPacket(packet))
-        {
-            Log($"[SEND] DISCONNECT_SYNC / mySession={BattleMatchSession.MySessionId} / paused={paused} / phase={phaseValue} / remain={remainingSeconds:0.000}");
-        }
+
+        if (!SendPacket(packet))
+            return false;
+
+        Log($"[SEND] DISCONNECT_SYNC / mySession={BattleMatchSession.MySessionId} / paused={paused} / phase={phaseValue} / remain={remainingSeconds:0.000}");
+        return true;
     }
 
     private byte[] BuildDisconnectSyncPacket(bool paused, int phaseValue, float remainingSeconds)
@@ -1571,5 +1580,83 @@ public class BattleNetDriver : MonoBehaviour
             bw.Write(wasBlocked);
             return ms.ToArray();
         }
+    }
+
+    // 2026.04.07 추가
+    private void QueueReconnectResumePacket()
+    {
+        _pendingReconnectResume = true;
+        _nextReconnectPacketRetryUnscaled = Time.unscaledTime;
+        Log("재접속 RESUME 패킷 큐 등록");
+    }
+
+    private void QueueReconnectSyncPacket(bool paused)
+    {
+        _pendingReconnectSync = true;
+        _pendingReconnectSyncPaused = paused;
+        _nextReconnectPacketRetryUnscaled = Time.unscaledTime;
+        Log($"재접속 SYNC 패킷 큐 등록 / paused={paused}");
+    }
+
+    private void ClearReconnectPacketQueue()
+    {
+        _pendingReconnectResume = false;
+        _pendingReconnectSync = false;
+        _pendingReconnectSyncPaused = false;
+        _nextReconnectPacketRetryUnscaled = 0f;
+    }
+
+    private void TryFlushReconnectPackets()
+    {
+        if (!_pendingReconnectResume && !_pendingReconnectSync)
+            return;
+
+        if (Time.unscaledTime < _nextReconnectPacketRetryUnscaled)
+            return;
+
+        if (!_battleStarted || !_joinedRoom || _matchEndSent)
+        {
+            _nextReconnectPacketRetryUnscaled = Time.unscaledTime + reconnectPacketRetryInterval;
+            return;
+        }
+
+        bool sentAny = false;
+
+        if (_pendingReconnectResume)
+        {
+            byte[] resumePacket = BuildDisconnectPacket(PacketOp.DisconnectResume);
+
+            if (SendPacket(resumePacket))
+            {
+                _pendingReconnectResume = false;
+                sentAny = true;
+                Log($"[SEND] DISCONNECT_RESUME / mySession={BattleMatchSession.MySessionId} / queued");
+            }
+        }
+
+        if (_pendingReconnectSync)
+        {
+            if (battleManager == null)
+                battleManager = GetComponent<BattleManager>();
+
+            if (battleManager != null)
+            {
+                int phaseValue = battleManager.GetCurrentPhaseForNetwork();
+                float remainingSeconds = battleManager.GetCurrentPhaseTimerForNetwork();
+                byte[] syncPacket = BuildDisconnectSyncPacket(_pendingReconnectSyncPaused, phaseValue, remainingSeconds);
+
+                if (SendPacket(syncPacket))
+                {
+                    _pendingReconnectSync = false;
+                    sentAny = true;
+                    Log($"[SEND] DISCONNECT_SYNC / mySession={BattleMatchSession.MySessionId} / paused={_pendingReconnectSyncPaused} / phase={phaseValue} / remain={remainingSeconds:0.000} / queued");
+                }
+            }
+        }
+
+        if (_pendingReconnectResume || _pendingReconnectSync)
+            _nextReconnectPacketRetryUnscaled = Time.unscaledTime + reconnectPacketRetryInterval;
+        else if (sentAny)
+            _nextReconnectPacketRetryUnscaled = 0f;
     }
 }

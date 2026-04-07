@@ -34,6 +34,10 @@ public class BattleDisconnectHandler : MonoBehaviour
     private float _ignoreOfflineUntilUnscaledTime;
     [SerializeField] private float ignoreOfflineCooldownSeconds = 2f;
 
+    [SerializeField] private float localReconnectFallbackSeconds = 4f;
+    private bool _localReconnectPending;
+    private float _localReconnectDeadlineUnscaled;
+
     private void Awake()
     {
         if (battleManager == null)
@@ -51,10 +55,18 @@ public class BattleDisconnectHandler : MonoBehaviour
         if (_battleFinished)
             return;
 
+        // 로컬 복귀 후 재접속 완료 콜백이 안 오면 영구 잠금 방지
+        if (_localReconnectPending && Time.unscaledTime >= _localReconnectDeadlineUnscaled)
+        {
+            Log($"Local reconnect fallback timeout / deadline={_localReconnectDeadlineUnscaled:0.00}");
+            CompleteLocalResume("fallback-timeout", true);
+        }
+
         if (!_remoteDisconnectActive)
             return;
 
         _remoteRemainingSeconds -= Time.unscaledDeltaTime;
+
         if (_remoteRemainingSeconds < 0f)
             _remoteRemainingSeconds = 0f;
 
@@ -167,10 +179,30 @@ public class BattleDisconnectHandler : MonoBehaviour
         if (_battleFinished)
             return;
 
+        CompleteLocalResume(string.IsNullOrWhiteSpace(source) ? "reconnect-complete" : source, false);
+    }
+
+    public void NotifyLocalReconnectFailed(string source = null)
+    {
+        if (_battleFinished)
+            return;
+
+        CompleteLocalResume(string.IsNullOrWhiteSpace(source) ? "reconnect-failed" : source, true);
+    }
+
+    private void CompleteLocalResume(string source, bool sendResumePacket)
+    {
+        _localReconnectPending = false;
+        _localReconnectDeadlineUnscaled = 0f;
+        _localPauseUtcTicks = 0L;
+
+        if (sendResumePacket && battleNetDriver != null)
+            battleNetDriver.TrySendDisconnectResume();
+
         if (battleManager != null)
             battleManager.SetDisconnectPauseState(false);
 
-        Log($"Local reconnect completed / source={source}");
+        Log($"Local resume complete / source={source} / sendResume={sendResumePacket}");
     }
 
     public void NotifyRemoteForfeit(string source = null)
@@ -236,6 +268,7 @@ public class BattleDisconnectHandler : MonoBehaviour
         _localPauseNotified = false;
 
         double elapsedSeconds = 0d;
+
         if (_localPauseUtcTicks > 0L)
             elapsedSeconds = TimeSpan.FromTicks(DateTime.UtcNow.Ticks - _localPauseUtcTicks).TotalSeconds;
 
@@ -245,7 +278,6 @@ public class BattleDisconnectHandler : MonoBehaviour
         {
             _battleFinished = true;
             _remoteDisconnectActive = false;
-
             HideOverlayImmediate();
 
             if (battleNetDriver != null)
@@ -263,19 +295,40 @@ public class BattleDisconnectHandler : MonoBehaviour
             return;
         }
 
+        _localPauseUtcTicks = 0L;
+
+        bool softResumeSent = false;
+
+        if (battleNetDriver != null)
+            softResumeSent = battleNetDriver.TrySendDisconnectResume();
+
+        if (softResumeSent)
+        {
+            if (battleNetDriver != null && battleNetDriver.IsLocalHostAuthority())
+                battleNetDriver.TrySendDisconnectSync(false);
+
+            if (battleManager != null)
+                battleManager.SetDisconnectPauseState(false);
+
+            Log($"Local resume soft-success / source={source}");
+            return;
+        }
+
         bool reconnectStarted = false;
 
         if (battleNetDriver != null)
             reconnectStarted = battleNetDriver.TryReconnectToActiveGame();
 
-        if (!reconnectStarted)
+        if (reconnectStarted)
         {
-            if (battleNetDriver != null)
-                battleNetDriver.SendDisconnectResume();
-
-            if (battleManager != null)
-                battleManager.SetDisconnectPauseState(false);
+            Log($"Local resume soft-fail -> reconnect start / source={source}");
+            return;
         }
+
+        if (battleManager != null)
+            battleManager.SetDisconnectPauseState(false);
+
+        Log($"Local resume soft-fail / reconnect unavailable / local unlock only / source={source}");
     }
 
     private void HandleRemoteTimeout()
