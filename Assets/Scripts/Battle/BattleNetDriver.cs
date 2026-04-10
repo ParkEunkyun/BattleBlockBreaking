@@ -72,6 +72,13 @@ public class BattleNetDriver : MonoBehaviour
     private bool _pendingReconnectSyncPaused;
     private float _nextReconnectPacketRetryUnscaled;
 
+    [SerializeField] private bool _relaySendAvailable;
+
+    [SerializeField] private float reconnectJoinServerTimeoutSeconds = 3.5f;
+
+    private bool _waitingReconnectJoinServerCallback;
+    private float _reconnectJoinServerDeadlineUnscaled;
+
     private void Awake()
     {
         if (battleManager == null)
@@ -102,6 +109,7 @@ public class BattleNetDriver : MonoBehaviour
         }
 
         TryFlushReconnectPackets();
+        CheckReconnectJoinServerTimeout();
     }
 
     public void BeginRankedInGame()
@@ -129,6 +137,29 @@ public class BattleNetDriver : MonoBehaviour
         _pollEnabled = true;
 
         JoinInGameServer();
+    }
+    private void CheckReconnectJoinServerTimeout()
+    {
+        if (!_waitingReconnectJoinServerCallback)
+            return;
+
+        if (Time.unscaledTime < _reconnectJoinServerDeadlineUnscaled)
+            return;
+
+        LogError("재접속 JoinGameServer 콜백 타임아웃",
+            $"deadline={_reconnectJoinServerDeadlineUnscaled:0.00}");
+
+        _waitingReconnectJoinServerCallback = false;
+        _reconnectRequested = false;
+        _joiningServer = false;
+        _joinedServer = false;
+        _joiningRoom = false;
+        _joinedRoom = false;
+        _relaySendAvailable = false;
+        ClearReconnectPacketQueue();
+
+        if (_disconnectHandler != null)
+            _disconnectHandler.NotifyLocalReconnectFailed("JoinGameServer-timeout");
     }
 
     private void JoinInGameServer()
@@ -202,14 +233,26 @@ public class BattleNetDriver : MonoBehaviour
             {
                 bool wasReconnect = _reconnectRequested;
 
+                _waitingReconnectJoinServerCallback = false;
+                _reconnectJoinServerDeadlineUnscaled = 0f;
+                _reconnectRequested = false;
                 _joiningServer = false;
                 _joinedServer = false;
                 _joiningRoom = false;
                 _joinedRoom = false;
+                _relaySendAvailable = false;
                 ClearReconnectPacketQueue();
+
                 LogError("인게임 서버 접속 실패", $"{category} / {reason}");
+
+                if (wasReconnect && _disconnectHandler != null)
+                    _disconnectHandler.NotifyLocalReconnectFailed("OnSessionJoinInServer-fail");
+
                 return;
             }
+
+            _waitingReconnectJoinServerCallback = false;
+            _reconnectJoinServerDeadlineUnscaled = 0f;
 
             _joiningServer = false;
             _joinedServer = true;
@@ -235,6 +278,7 @@ public class BattleNetDriver : MonoBehaviour
         {
             _joiningRoom = false;
             _joinedRoom = true;
+            _relaySendAvailable = true;
 
             int count = args.GameRecords != null ? args.GameRecords.Count : 0;
             Log($"OnSessionListInServer / joinedRoom=true / count={count}");
@@ -368,6 +412,8 @@ public class BattleNetDriver : MonoBehaviour
             using (MemoryStream ms = new MemoryStream(data))
             using (BinaryReader br = new BinaryReader(ms))
             {
+                _relaySendAvailable = true;
+
                 PacketOp op = (PacketOp)br.ReadByte();
 
                 // 상대가 어떤 정상 패킷이든 다시 보내기 시작했다면 복귀한 것으로 간주
@@ -584,25 +630,17 @@ public class BattleNetDriver : MonoBehaviour
         }
     }
 
-    public void SendScoreSync(int score)
+    public bool TrySendScoreSync(int score)
     {
-        if (!_battleStarted)
-        {
-            LogError("SCORE_SYNC 전송 실패", "아직 배틀 시작 전");
-            return;
-        }
-
-        if (!_joinedRoom)
-        {
-            LogError("SCORE_SYNC 전송 실패", "아직 게임방 입장 전");
-            return;
-        }
+        if (!IsRelayReadyForRealtime())
+            return false;
 
         byte[] packet = BuildScoreSyncPacket(score);
-        if (SendPacket(packet))
-        {
-            Log($"[SEND] SCORE_SYNC / mySession={BattleMatchSession.MySessionId} / score={score}");
-        }
+        if (!SendPacket(packet))
+            return false;
+
+        Log($"[SEND] SCORE_SYNC / mySession={BattleMatchSession.MySessionId} / score={score}");
+        return true;
     }
     private byte[] BuildScoreSyncPacket(int score)
     {
@@ -713,32 +751,24 @@ public class BattleNetDriver : MonoBehaviour
         _remoteRoundReadyReceived = false;
     }
 
-    public void SendRoundReady()
+    public bool TrySendRoundReady()
     {
-        if (!_battleStarted)
-        {
-            LogError("ROUND_READY 전송 실패", "아직 배틀 시작 전");
-            return;
-        }
-
-        if (!_joinedRoom)
-        {
-            LogError("ROUND_READY 전송 실패", "아직 게임방 입장 전");
-            return;
-        }
+        if (!IsRelayReadyForRealtime())
+            return false;
 
         if (_localRoundReadySent)
         {
             Log("[SEND] ROUND_READY already sent");
-            return;
+            return true;
         }
 
         byte[] packet = BuildRoundReadyPacket();
-        if (SendPacket(packet))
-        {
-            _localRoundReadySent = true;
-            Log($"[SEND] ROUND_READY / mySession={BattleMatchSession.MySessionId}");
-        }
+        if (!SendPacket(packet))
+            return false;
+
+        _localRoundReadySent = true;
+        Log($"[SEND] ROUND_READY / mySession={BattleMatchSession.MySessionId}");
+        return true;
     }
 
     private byte[] BuildRoundReadyPacket()
@@ -751,16 +781,18 @@ public class BattleNetDriver : MonoBehaviour
         }
     }
 
-    public void SendDisconnectPause()
+    public bool TrySendDisconnectPause()
     {
-        if (!CanSendDisconnectPacket())
-            return;
+        if (!IsRelayReadyForRealtime())
+            return false;
 
         byte[] packet = BuildDisconnectPacket(PacketOp.DisconnectPause);
-        if (SendPacket(packet))
-        {
-            Log($"[SEND] DISCONNECT_PAUSE / mySession={BattleMatchSession.MySessionId}");
-        }
+
+        if (!SendPacket(packet))
+            return false;
+
+        Log($"[SEND] DISCONNECT_PAUSE / mySession={BattleMatchSession.MySessionId}");
+        return true;
     }
     public bool TrySendDisconnectResume()
     {
@@ -791,6 +823,12 @@ public class BattleNetDriver : MonoBehaviour
 
     public bool TryReconnectToActiveGame()
     {
+        if (_joiningServer || _joiningRoom || _reconnectRequested)
+        {
+            Log("재접속 이미 진행중");
+            return true;
+        }
+
         if (BattleMatchSession.Mode != GameMode.Ranked)
             return false;
 
@@ -834,9 +872,15 @@ public class BattleNetDriver : MonoBehaviour
             {
                 _reconnectRequested = false;
                 _joiningServer = false;
+                _waitingReconnectJoinServerCallback = false;
+                _reconnectJoinServerDeadlineUnscaled = 0f;
+                _relaySendAvailable = false;
                 LogError("재접속 JoinGameServer 요청 실패", FormatErrorInfo(errorInfo));
                 return false;
             }
+
+            _waitingReconnectJoinServerCallback = true;
+            _reconnectJoinServerDeadlineUnscaled = Time.unscaledTime + Mathf.Max(1f, reconnectJoinServerTimeoutSeconds);
 
             Log($"재접속 JoinGameServer 요청 성공 / {addr}:{port}");
             return true;
@@ -845,6 +889,9 @@ public class BattleNetDriver : MonoBehaviour
         {
             _reconnectRequested = false;
             _joiningServer = false;
+            _waitingReconnectJoinServerCallback = false;
+            _reconnectJoinServerDeadlineUnscaled = 0f;
+            _relaySendAvailable = false;
             LogError("재접속 예외", e.Message);
             return false;
         }
@@ -1016,10 +1063,12 @@ public class BattleNetDriver : MonoBehaviour
         try
         {
             Backend.Match.SendDataToInGameRoom(packet);
+            _relaySendAvailable = true;
             return true;
         }
         catch (Exception e)
         {
+            _relaySendAvailable = false;
             LogError("SendDataToInGameRoom 예외", e.Message);
             return false;
         }
@@ -1298,39 +1347,32 @@ public class BattleNetDriver : MonoBehaviour
 
         return string.Empty;
     }
-    public void SendBoardSnapshot()
+    public bool TrySendBoardSnapshot()
     {
-        if (!_battleStarted)
-        {
-            LogError("BOARD_SNAPSHOT 전송 실패", "아직 배틀 시작 전");
-            return;
-        }
-
-        if (!_joinedRoom)
-        {
-            LogError("BOARD_SNAPSHOT 전송 실패", "아직 게임방 입장 전");
-            return;
-        }
+        if (!IsRelayReadyForRealtime())
+            return false;
 
         if (battleManager == null)
         {
             LogError("BOARD_SNAPSHOT 전송 실패", "battleManager is null");
-            return;
+            return false;
         }
 
         byte[] payload = battleManager.BuildBoardSnapshotPayload();
         if (payload == null || payload.Length == 0)
         {
             LogError("BOARD_SNAPSHOT 전송 실패", "payload is empty");
-            return;
+            return false;
         }
 
         byte[] packet = BuildBoardSnapshotPacket(payload);
-        if (SendPacket(packet))
-        {
-            Log($"[SEND] BOARD_SNAPSHOT / mySession={BattleMatchSession.MySessionId} / bytes={payload.Length}");
-        }
+        if (!SendPacket(packet))
+            return false;
+
+        Log($"[SEND] BOARD_SNAPSHOT / mySession={BattleMatchSession.MySessionId} / bytes={payload.Length}");
+        return true;
     }
+
     private byte[] BuildBoardSnapshotPacket(byte[] payload)
     {
         using (MemoryStream ms = new MemoryStream())
@@ -1500,6 +1542,11 @@ public class BattleNetDriver : MonoBehaviour
 
         Log($"[SEND] ITEM_USE / mySession={BattleMatchSession.MySessionId} / item={itemId}");
         return true;
+    }
+
+    public bool IsRelayReadyForRealtime()
+    {
+        return _battleStarted && _joinedRoom && !_matchEndSent && _relaySendAvailable;
     }
 
     private byte[] BuildItemUsePacket(BattleManager.BattleItemId itemId)

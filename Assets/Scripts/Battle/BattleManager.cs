@@ -1504,6 +1504,7 @@ public class BattleManager : MonoBehaviour
 
     public void OnBeginDragSlot(int slotIndex, PointerEventData eventData)
     {
+
         if (!CanAcceptUserInput())
             return;
 
@@ -1717,8 +1718,8 @@ public class BattleManager : MonoBehaviour
 
         if (IsRankedBattle && _battleNetDriver != null)
         {
-            _battleNetDriver.SendBoardSnapshot();
-            _battleNetDriver.SendScoreSync(GetMyScoreForNetwork());
+            _battleNetDriver.TrySendBoardSnapshot();
+            _battleNetDriver.TrySendScoreSync(GetMyScoreForNetwork());
         }
     }
     private void CollectCompletedLinesForFx(List<int> completedRows, List<int> completedCols)
@@ -3098,12 +3099,6 @@ public class BattleManager : MonoBehaviour
         if (_phase != BattlePhase.Play)
             return;
 
-        if (_roundReadySendIssued)
-        {
-            Debug.Log("[BBB] RequestRoundEnd ignored - already sent this round");
-            return;
-        }
-
         if (_localRoundReady)
             return;
 
@@ -3114,15 +3109,15 @@ public class BattleManager : MonoBehaviour
         if (!canEnd)
             return;
 
-        _localRoundReady = true;
-        _waitingForOpponentRoundReady = true;
-
-        RefreshRoundEndButtonUI();
-        RefreshOwnedItemUI();
-        RefreshSlotVisual();
+        if (IsRankedBattle && _battleNetDriver != null && !_battleNetDriver.IsRelayReadyForRealtime())
+        {
+            Debug.LogWarning("[BBB] RequestRoundEnd blocked - relay unavailable");
+            SetDisconnectPauseState(true);
+            _battleNetDriver.TryReconnectToActiveGame();
+            return;
+        }
 
         SendRoundEndReadyToOpponent();
-        TryEnterResolveWhenBothReady();
     }
 
 
@@ -3165,15 +3160,14 @@ public class BattleManager : MonoBehaviour
     private void SendRoundEndReadyToOpponent()
     {
         if (_roundReadySendIssued)
+            return;
+
+        if (_battleNetDriver == null)
         {
+            Debug.LogError("[BBB] BattleNetDriver is null");
             return;
         }
 
-        _roundReadySendIssued = true;
-        _localRoundReady = true;
-        _waitingForOpponentRoundReady = true;
-
-        // 공격 아이템은 라운드 종료 확정 시점에 상대에게 전송
         ApplyReservedOutgoingAttack();
 
         RefreshOwnedItemUI();
@@ -3182,16 +3176,35 @@ public class BattleManager : MonoBehaviour
         RefreshOpponentMiniBoard();
         RefreshTopHud();
 
-        if (_battleNetDriver != null)
+        bool snapOk = _battleNetDriver.TrySendBoardSnapshot();
+        bool scoreOk = _battleNetDriver.TrySendScoreSync(GetMyScoreForNetwork());
+        bool readyOk = _battleNetDriver.TrySendRoundReady();
+
+        if (!snapOk || !scoreOk || !readyOk)
         {
-            _battleNetDriver.SendBoardSnapshot();
-            _battleNetDriver.SendScoreSync(GetMyScoreForNetwork());
-            _battleNetDriver.SendRoundReady();
+            Debug.LogError($"[BBB] RoundEnd send failed / snap={snapOk} / score={scoreOk} / ready={readyOk}");
+
+            _roundReadySendIssued = false;
+            _localRoundReady = false;
+            _waitingForOpponentRoundReady = false;
+
+            RefreshRoundEndButtonUI();
+            RefreshOwnedItemUI();
+            RefreshSlotVisual();
+            RefreshTopHud();
+
+            SetDisconnectPauseState(true);
+            _battleNetDriver.TryReconnectToActiveGame();
+            return;
         }
-        else
-        {
-            Debug.LogError("[BBB] BattleNetDriver is null");
-        }
+
+        _roundReadySendIssued = true;
+        _localRoundReady = true;
+        _waitingForOpponentRoundReady = true;
+
+        RefreshRoundEndButtonUI();
+        RefreshOwnedItemUI();
+        RefreshSlotVisual();
 
         TryResolveRoundEndSync();
     }
@@ -3648,7 +3661,7 @@ public class BattleManager : MonoBehaviour
         RefreshTopHud();
 
         if (IsRankedBattle && _battleNetDriver != null)
-            _battleNetDriver.SendBoardSnapshot();
+            _battleNetDriver.TrySendBoardSnapshot();
     }
 
     private void ApplyObstacleAttackToMyBoard(int count)

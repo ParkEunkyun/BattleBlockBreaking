@@ -588,8 +588,6 @@ MonoBehaviour:
   dontDestroy: 1
   initializeOnStart: 1
   useTestIds: 1
-  debugBypassUmp: 0
-  debugAutoShowBannerAfterInit: 0
   androidBannerId: ca-app-pub-2393527128341658/1302132126
   androidInterstitialId: ca-app-pub-2393527128341658/9693853960
   androidRewardedId: ca-app-pub-2393527128341658/1623792252
@@ -647,8 +645,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 105.237915}
-  m_SizeDelta: {x: 800, y: 525.5242}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 800, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1054705960
 MonoBehaviour:

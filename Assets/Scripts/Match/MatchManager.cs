@@ -46,7 +46,7 @@ public class MatchManager : MonoBehaviour
     private bool _isCancellingMatch;
     private bool _isConnectedToMatchServer;
     private bool _isInMatchRoom;
-
+    private bool _ignoreLeaveMatchMakingServerCallback;
     private void Awake()
     {
         if (I != null && I != this)
@@ -125,6 +125,9 @@ public class MatchManager : MonoBehaviour
             if (!TryResolveMatchCardInDateFromConsole())
                 return;
         }
+
+        enabled = true;
+        _ignoreLeaveMatchMakingServerCallback = false;
 
         BattleMatchSession.Clear();
         BattleMatchSession.Mode = GameMode.Ranked;
@@ -311,6 +314,7 @@ public class MatchManager : MonoBehaviour
                 _isWaitingForMatch = false;
                 _isLoadingBattleScene = true;
                 _isCancellingMatch = false;
+                _ignoreLeaveMatchMakingServerCallback = true;
 
                 BattleMatchSession.Mode = GameMode.Ranked;
                 BattleMatchSession.MatchCardInDate = ReadMemberAsString(args, "MatchCardIndate");
@@ -338,6 +342,14 @@ public class MatchManager : MonoBehaviour
 
             _isConnectedToMatchServer = false;
             _isInMatchRoom = false;
+
+            // 배틀 흐름 중에는 MatchMakingServer leave를 취소 처리로 보지 않는다.
+            // 여기서 BattleMatchSession.Clear()가 타면 재접속 정보가 날아간다.
+            if (IsBattleFlowProtected() && !_isCancellingMatch)
+            {
+                Log("배틀 흐름 중 OnLeaveMatchMakingServer 무시");
+                return;
+            }
 
             ForceCleanupAfterCancel();
         };
@@ -367,7 +379,15 @@ public class MatchManager : MonoBehaviour
             LogError("JoinMatchMakingServer 예외", e.Message);
         }
     }
+    private bool IsBattleFlowProtected()
+    {
+        if (_ignoreLeaveMatchMakingServerCallback)
+            return true;
 
+        string activeScene = SceneManager.GetActiveScene().name;
+        return !string.IsNullOrWhiteSpace(activeScene) &&
+               string.Equals(activeScene, battleSceneName, StringComparison.Ordinal);
+    }
     private bool TryParseMatchEnums(out MatchType matchType, out MatchModeType modeType)
     {
         matchType = default;
@@ -484,6 +504,7 @@ public class MatchManager : MonoBehaviour
 
     private void ForceCleanupAfterCancel()
     {
+        _ignoreLeaveMatchMakingServerCallback = false;
         _isCancellingMatch = false;
         _isConnectedToMatchServer = false;
         _isInMatchRoom = false;

@@ -1,3 +1,4 @@
+using BackEnd;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -143,8 +144,15 @@ public class LobbyManager : MonoBehaviour
     [SerializeField] private Button _recordTabButton;
     [SerializeField] private Button _claimRewardButton;
 
-    private GameObject _loadoutPopupRoot;
-    private GameObject _matchPopupRoot;
+    [SerializeField] private GameObject _loadoutPopupRoot;
+    [SerializeField] private GameObject _matchPopupRoot;
+
+    [SerializeField] private GameObject _nicknamePopupRoot;
+    [SerializeField] private TMP_InputField _nicknameInputField;
+    [SerializeField] private Button _confirmNicknameButton;
+    [SerializeField] private Button _closeNicknameButton;
+    [SerializeField] private TMP_Text _nicknameGuideText;
+    [SerializeField] private bool _nicknameInfoLoaded;
 
     private readonly Image[] _attackPreviewIcons = new Image[3];
     private readonly Image[] _supportPreviewIcons = new Image[2];
@@ -154,8 +162,8 @@ public class LobbyManager : MonoBehaviour
     private readonly ChoiceButtonRefs[] _attackChoiceButtons = new ChoiceButtonRefs[6];
     private readonly ChoiceButtonRefs[] _supportChoiceButtons = new ChoiceButtonRefs[5];
 
-    private static readonly Color32 ChoiceSelectedColor = new Color32(255, 214, 120, 255);
-    private static readonly Color32 ChoiceUnselectedColor = new Color32(255, 255, 255, 255);
+    private static readonly Color32 ChoiceSelectedColor = new Color32(255, 255, 255, 255);
+    private static readonly Color32 ChoiceUnselectedColor = new Color32(145, 145, 145, 255);
 
     [SerializeField] private Sprite selectSprite;
     [SerializeField] private Sprite normalSprite;
@@ -174,16 +182,25 @@ public class LobbyManager : MonoBehaviour
     private void Awake()
     {
         BuildVisualMaps();
+
         CacheHierarchy();
         BindButtons();
+
         LoadSavedLoadoutOrDefault();
+
         RefreshNicknameFromBackend();
         ApplyProfileTexts();
+
         RefreshModeUI();
         RefreshPreviewUI();
+
         HideLoadoutPopup();
         HideMatchPopup();
+        HideNicknamePopup();
+
         ApplyRankedRecordUi();
+
+        TryOpenNicknamePopup();
     }
     private void Start()
     {
@@ -260,6 +277,12 @@ public class LobbyManager : MonoBehaviour
         _confirmLoadoutButton = FindButton(safeArea, "LoadoutPopupRoot/LoadoutPopupPanel/ConfirmLoadoutButton");
         _closeLoadoutButton = FindButton(safeArea, "LoadoutPopupRoot/LoadoutPopupPanel/CloseLoadoutButton");
         _cancelMatchButton = FindButton(safeArea, "MatchPopupRoot/MatchPopupPanel/CancelMatchButton");
+
+        _nicknamePopupRoot = FindGO(safeArea, "NicknamePopupRoot");
+        _nicknameInputField = FindInputField(safeArea, "NicknamePopupRoot/NicknamePopupPanel/Top/NicknameInputField");
+        _confirmNicknameButton = FindButton(safeArea, "NicknamePopupRoot/NicknamePopupPanel/Bottom/ConfirmNicknameButton");
+        _closeNicknameButton = FindButton(safeArea, "NicknamePopupRoot/NicknamePopupPanel/Bottom/CloseNicknameButton");
+        _nicknameGuideText = FindTMP(safeArea, "NicknamePopupRoot/NicknamePopupPanel/Top/GuideText");
 
         for (int i = 0; i < 3; i++)
         {
@@ -360,6 +383,18 @@ public class LobbyManager : MonoBehaviour
         {
             _cancelMatchButton.onClick.RemoveAllListeners();
             _cancelMatchButton.onClick.AddListener(CancelMatching);
+        }
+
+        if (_confirmNicknameButton != null)
+        {
+            _confirmNicknameButton.onClick.RemoveAllListeners();
+            _confirmNicknameButton.onClick.AddListener(OnClickCreateNickname);
+        }
+
+        if (_closeNicknameButton != null)
+        {
+            _closeNicknameButton.onClick.RemoveAllListeners();
+            _closeNicknameButton.onClick.AddListener(CloseNicknamePopup);
         }
 
         if (_loadoutTabButton != null)
@@ -596,6 +631,114 @@ public class LobbyManager : MonoBehaviour
             _matchPopupRoot.SetActive(false);
     }
 
+    private void TryOpenNicknamePopup()
+    {
+        if (!_nicknameInfoLoaded)
+            return;
+
+        if (string.IsNullOrWhiteSpace(nickname))
+            OpenNicknamePopup();
+        else
+            HideNicknamePopup();
+    }
+
+    private void OpenNicknamePopup()
+    {
+        if (_nicknamePopupRoot == null)
+        {
+            Debug.LogError("[LobbyManager] NicknamePopupRoot 를 찾지 못했습니다.");
+            return;
+        }
+
+        _nicknamePopupRoot.SetActive(true);
+        SetTMP(_nicknameGuideText, "닉네임을 입력해주세요.");
+
+        if (_nicknameInputField != null)
+        {
+            _nicknameInputField.text = string.Empty;
+            _nicknameInputField.Select();
+            _nicknameInputField.ActivateInputField();
+        }
+    }
+
+    private void CloseNicknamePopup()
+    {
+        if (string.IsNullOrWhiteSpace(nickname))
+        {
+            SetTMP(_nicknameGuideText, "닉네임을 먼저 생성해야 합니다.");
+            return;
+        }
+
+        HideNicknamePopup();
+    }
+
+    private void HideNicknamePopup()
+    {
+        if (_nicknamePopupRoot != null)
+            _nicknamePopupRoot.SetActive(false);
+    }
+
+    public void OnClickCreateNickname()
+    {
+        if (_nicknameInputField == null)
+        {
+            Debug.LogError("[LobbyManager] NicknameInputField 가 연결되지 않았습니다.");
+            return;
+        }
+
+        string newNickname = _nicknameInputField.text == null
+            ? string.Empty
+            : _nicknameInputField.text.Trim();
+
+        if (string.IsNullOrWhiteSpace(newNickname))
+        {
+            SetTMP(_nicknameGuideText, "닉네임을 입력해주세요.");
+            return;
+        }
+
+        try
+        {
+            BackendReturnObject bro = Backend.BMember.UpdateNickname(newNickname);
+
+            if (bro == null)
+            {
+                SetTMP(_nicknameGuideText, "닉네임 생성 실패");
+                Debug.LogError("[LobbyManager] UpdateNickname 응답이 null 입니다.");
+                return;
+            }
+
+            if (!bro.IsSuccess())
+            {
+                string failMsg = "닉네임 생성 실패";
+
+                try
+                {
+                    failMsg = bro.GetMessage();
+                }
+                catch
+                {
+                }
+
+                SetTMP(_nicknameGuideText, failMsg);
+                Debug.LogError($"[LobbyManager] UpdateNickname 실패 : {bro}");
+                return;
+            }
+
+            nickname = newNickname;
+            _nicknameInfoLoaded = true;
+
+            ApplyProfileTexts();
+            HideNicknamePopup();
+
+            Debug.Log($"[LobbyManager] 닉네임 생성 완료 : {nickname}");
+        }
+        catch (System.Exception e)
+        {
+            SetTMP(_nicknameGuideText, "닉네임 생성 중 예외 발생");
+            Debug.LogException(e);
+        }
+    }
+
     private void ToggleAttackChoice(int optionIndex)
     {
         if (optionIndex < 0 || optionIndex >= allAttackOptions.Length)
@@ -743,6 +886,12 @@ public class LobbyManager : MonoBehaviour
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(nickname))
+        {
+            OpenNicknamePopup();
+            return;
+        }
+
         BattleLoadoutSession.SetLoadout(_selectedAttackLoadout, _selectedSupportLoadout, _gameMode);
         SaveLoadout();
 
@@ -879,6 +1028,19 @@ public class LobbyManager : MonoBehaviour
             return tmp;
 
         return t.GetComponentInChildren<TMP_Text>(true);
+    }
+
+    private static TMP_InputField FindInputField(Transform root, string path)
+    {
+        Transform t = root.Find(path);
+        if (t == null)
+            return null;
+
+        TMP_InputField input = t.GetComponent<TMP_InputField>();
+        if (input != null)
+            return input;
+
+        return t.GetComponentInChildren<TMP_InputField>(true);
     }
 
     private static Button FindButton(Transform root, string path)
@@ -1095,10 +1257,46 @@ public class LobbyManager : MonoBehaviour
 
     private void RefreshNicknameFromBackend()
     {
-        string resolved = ResolveBackendNicknameSafe();
+        _nicknameInfoLoaded = false;
 
-        if (!string.IsNullOrWhiteSpace(resolved))
-            nickname = resolved;
+        try
+        {
+            BackendReturnObject bro = Backend.BMember.GetUserInfo();
+
+            if (bro == null)
+            {
+                Debug.LogError("[LobbyManager] GetUserInfo 응답이 null 입니다.");
+                return;
+            }
+
+            if (!bro.IsSuccess())
+            {
+                Debug.LogError($"[LobbyManager] GetUserInfo 실패 : {bro}");
+                return;
+            }
+
+            string serverNickname = string.Empty;
+
+            try
+            {
+                serverNickname = bro.GetReturnValuetoJSON()["row"]["nickname"]?.ToString();
+            }
+            catch
+            {
+                serverNickname = string.Empty;
+            }
+
+            nickname = string.IsNullOrWhiteSpace(serverNickname)
+                ? string.Empty
+                : serverNickname.Trim();
+
+            _nicknameInfoLoaded = true;
+            Debug.Log($"[LobbyManager] 서버 닉네임 = {(string.IsNullOrWhiteSpace(nickname) ? "(empty)" : nickname)}");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+        }
     }
 
     private string ResolveBackendNicknameSafe()
