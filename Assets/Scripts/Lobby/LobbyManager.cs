@@ -179,6 +179,10 @@ public class LobbyManager : MonoBehaviour
     [SerializeField] private TMP_Text detailDefeatText;
     [SerializeField] private List<TierVisualEntry> tierVisualEntries = new List<TierVisualEntry>();
 
+    [SerializeField] private GameObject _attackLoadoutPanel;
+    [SerializeField] private GameObject _supportLoadoutPanel;
+    [SerializeField] private LobbyNormalArtifactController _normalArtifactController;
+
     private void Awake()
     {
         BuildVisualMaps();
@@ -187,6 +191,9 @@ public class LobbyManager : MonoBehaviour
         BindButtons();
 
         LoadSavedLoadoutOrDefault();
+
+        if (_normalArtifactController != null)
+            _normalArtifactController.Initialize();
 
         RefreshNicknameFromBackend();
         ApplyProfileTexts();
@@ -342,6 +349,12 @@ public class LobbyManager : MonoBehaviour
             {
                 _gameMode = GameMode.Ranked;
                 RefreshModeUI();
+                SaveLoadout();
+
+                if (_normalArtifactController != null)
+                    _normalArtifactController.ClosePopup();
+
+                CloseLoadoutPopup();
             });
         }
 
@@ -352,6 +365,12 @@ public class LobbyManager : MonoBehaviour
             {
                 _gameMode = GameMode.Normal;
                 RefreshModeUI();
+                SaveLoadout();
+
+                if (_normalArtifactController != null)
+                    _normalArtifactController.ClosePopup();
+
+                CloseLoadoutPopup();
             });
         }
 
@@ -555,6 +574,17 @@ public class LobbyManager : MonoBehaviour
     {
         SetModeButtonVisual(_rankedModeButton, IsRankedMode);
         SetModeButtonVisual(_normalModeButton, IsNormalMode);
+
+        if (_attackLoadoutPanel != null)
+            _attackLoadoutPanel.SetActive(IsRankedMode);
+
+        if (_supportLoadoutPanel != null)
+            _supportLoadoutPanel.SetActive(IsRankedMode);
+
+        if (_normalArtifactController != null)
+            _normalArtifactController.SetVisible(IsNormalMode);
+
+        SetTMP(_popupTitleText, "로드아웃 편집");
     }
 
     private void SetModeButtonVisual(Button button, bool selected)
@@ -880,19 +910,12 @@ public class LobbyManager : MonoBehaviour
 
     private void OnClickStartBattle()
     {
-        if (_selectedAttackLoadout.Count != 3 || _selectedSupportLoadout.Count != 2)
-        {
-            OpenLoadoutPopup();
-            return;
-        }
-
         if (string.IsNullOrWhiteSpace(nickname))
         {
             OpenNicknamePopup();
             return;
         }
 
-        BattleLoadoutSession.SetLoadout(_selectedAttackLoadout, _selectedSupportLoadout, _gameMode);
         SaveLoadout();
 
         if (_matchRoutine != null)
@@ -905,6 +928,14 @@ public class LobbyManager : MonoBehaviour
         {
             case GameMode.Ranked:
                 {
+                    if (_selectedAttackLoadout.Count != 3 || _selectedSupportLoadout.Count != 2)
+                    {
+                        OpenLoadoutPopup();
+                        return;
+                    }
+
+                    BattleLoadoutSession.SetLoadout(_selectedAttackLoadout, _selectedSupportLoadout, _gameMode);
+
                     ShowMatchPopup("랭크전 매칭중...");
 
                     if (MatchManager.I == null)
@@ -921,6 +952,20 @@ public class LobbyManager : MonoBehaviour
 
             case GameMode.Normal:
                 {
+                    if (_normalArtifactController == null)
+                    {
+                        Debug.LogError("[LobbyManager] _normalArtifactController 가 연결되지 않았습니다.");
+                        return;
+                    }
+
+                    if (!_normalArtifactController.HasValidSelection())
+                    {
+                        _normalArtifactController.OpenPopup();
+                        return;
+                    }
+
+                    _normalArtifactController.ApplyToSession();
+
                     ShowMatchPopup("노말 모드 준비중...");
                     _matchRoutine = StartCoroutine(CoEnterScene(normalSceneName));
                     break;
