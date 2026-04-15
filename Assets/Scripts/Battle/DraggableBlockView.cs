@@ -7,7 +7,7 @@ public class DraggableBlockView : MonoBehaviour, IBeginDragHandler, IDragHandler
     [SerializeField] private Image backgroundImage;
     [SerializeField] private Image sealOverlayImage;
 
-    private BattleManager _owner;
+    private IDragBlockOwner _owner;
     private int _slotIndex;
 
     public RectTransform RectTransform => transform as RectTransform;
@@ -22,7 +22,8 @@ public class DraggableBlockView : MonoBehaviour, IBeginDragHandler, IDragHandler
         EnsureSealOverlay();
     }
 
-    public void Setup(BattleManager owner, int slotIndex)
+    /// <summary>BattleManager / NormalManager °ø¿ë Setup</summary>
+    public void Setup(IDragBlockOwner owner, int slotIndex)
     {
         _owner = owner;
         _slotIndex = slotIndex;

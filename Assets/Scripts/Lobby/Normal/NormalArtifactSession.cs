@@ -1,39 +1,26 @@
 using System.Collections.Generic;
 
+/// <summary>
+/// 로비에서 선택한 아티팩트 Definition을 노말씬으로 넘기는 세션 데이터.
+/// </summary>
 public static class NormalArtifactSession
 {
-    private static readonly List<NormalArtifactId> _selectedArtifacts = new List<NormalArtifactId>(4);
+    private static readonly List<NormalArtifactDefinition> _selected =
+        new List<NormalArtifactDefinition>(4);
 
-    public static IReadOnlyList<NormalArtifactId> SelectedArtifacts => _selectedArtifacts;
+    public static IReadOnlyList<NormalArtifactDefinition> Selected => _selected;
 
-    public static void SetArtifacts(IList<NormalArtifactId> artifacts)
+    public static void Set(IList<NormalArtifactDefinition> defs)
     {
-        _selectedArtifacts.Clear();
-
-        if (artifacts == null)
-            return;
-
-        for (int i = 0; i < artifacts.Count && _selectedArtifacts.Count < 4; i++)
+        _selected.Clear();
+        if (defs == null) return;
+        foreach (var d in defs)
         {
-            NormalArtifactId id = artifacts[i];
-
-            if (id == NormalArtifactId.None)
-                continue;
-
-            if (_selectedArtifacts.Contains(id))
-                continue;
-
-            _selectedArtifacts.Add(id);
+            if (d == null) continue;
+            if (_selected.Count >= 4) break;
+            _selected.Add(d);
         }
     }
 
-    public static List<NormalArtifactId> GetCopy()
-    {
-        return new List<NormalArtifactId>(_selectedArtifacts);
-    }
-
-    public static void Clear()
-    {
-        _selectedArtifacts.Clear();
-    }
+    public static void Clear() => _selected.Clear();
 }

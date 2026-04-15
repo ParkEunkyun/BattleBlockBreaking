@@ -8,7 +8,7 @@ using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using System.IO;
 
-public class BattleManager : MonoBehaviour
+public class BattleManager : MonoBehaviour, IDragBlockOwner
 {
     public enum ItemKind
     {

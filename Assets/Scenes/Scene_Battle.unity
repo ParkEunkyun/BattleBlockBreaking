@@ -7432,7 +7432,7 @@ MonoBehaviour:
     itemSprite: {fileID: 21300000, guid: 09135c198f8744fcd89493b169d11bd8, type: 3}
     incomingSprite: {fileID: 21300000, guid: 09135c198f8744fcd89493b169d11bd8, type: 3}
   myBoardCellSize: {x: 125, y: 125}
-  myBoardSpacing: {x: 1, y: 1}
+  myBoardSpacing: {x: -1, y: -1}
   opponentMiniCellSize: {x: 40, y: 40}
   opponentMiniSpacing: {x: 1, y: 1}
   slotPreviewCellSize: 75
@@ -7535,6 +7535,9 @@ MonoBehaviour:
   battleManager: {fileID: 1524103972}
   autoBeginOnStart: 1
   verboseLog: 1
+  reconnectPacketRetryInterval: 0.25
+  _relaySendAvailable: 0
+  reconnectJoinServerTimeoutSeconds: 3.5
 --- !u!114 &1524103976
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7563,6 +7566,8 @@ MonoBehaviour:
     \uC2B9\uB9AC \uCC98\uB9AC\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
   localTimeoutLoseReason: "\uC571 \uC774\uD0C8 \uC720\uC608 \uC2DC\uAC04\uC744 \uCD08\uACFC\uD558\uC5EC
     \uD328\uBC30 \uCC98\uB9AC\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
+  ignoreOfflineCooldownSeconds: 2
+  localReconnectFallbackSeconds: 4
 --- !u!1 &1560583384
 GameObject:
   m_ObjectHideFlags: 0

@@ -88,11 +88,11 @@ public static class BattleBlockCore
     public const int BoardSize = 8;
 
     public static readonly Color32 BoardBaseColor = new Color32(255, 255, 255, 255);
-    public static readonly Color32 BlockColor1 = new Color32(230, 117, 127, 255); // E6757F
-    public static readonly Color32 BlockColor2 = new Color32(180, 113, 232, 255); // B471E8
-    public static readonly Color32 BlockColor3 = new Color32(230, 213, 107, 255); // E6D56B
-    public static readonly Color32 BlockColor4 = new Color32(107, 228, 130, 255); // 6BE482
-    public static readonly Color32 BlockColor5 = new Color32(112, 154, 231, 255); // 709AE7
+    public static readonly Color32 BlockColor1 = new Color32(255, 255, 255, 255);//  7E6757F (230, 117, 127, 255) 
+    public static readonly Color32 BlockColor2 = new Color32(255, 255, 255, 255); // B471E8 (180, 113, 232, 255)
+    public static readonly Color32 BlockColor3 = new Color32(255, 255, 255, 255); // E6D56B (230, 213, 107, 255)
+    public static readonly Color32 BlockColor4 = new Color32(255, 255, 255, 255); // 6BE482 (107, 228, 130, 255)
+    public static readonly Color32 BlockColor5 = new Color32(255, 255, 255, 255);// 709AE7 (112, 154, 231, 255)
     public static readonly Color32 CurseColor = new Color32(170, 90, 220, 255);
 
     public static void BuildShapeLibrary(
