@@ -11,17 +11,16 @@ using UnityEngine.UI;
 /// 하이어라키 예시:
 /// SafeArea/
 ///   NormalLobbyRoot/
-///     ArtifactListRoot/          ← 전체 아티팩트 카드 목록 (스크롤뷰 Content 등)
+///     ArtifactListRoot/   ← 전체 아티팩트 카드 목록 (스크롤뷰 Content 등)
 ///     SelectedSlotRoot/
-///       SelectedSlot1~4          ← 선택된 슬롯 (아이콘 + 해제 버튼)
-///     StartButton                ← 게임 시작 버튼
+///       SelectedSlot1~4   ← 선택된 슬롯 (아이콘 + 해제 버튼)
+///     StartButton         ← 게임 시작 버튼
 /// </summary>
 public sealed class LobbyNormalArtifactController : MonoBehaviour
 {
-    // ????????????????????????????????????????????
-    //  내부 타입
-    // ????????????????????????????????????????????
-
+    // =========================
+    // 내부 타입
+    // =========================
     /// <summary>아티팩트 카드 1개 UI 정보</summary>
     private sealed class ArtifactCardUI
     {
@@ -30,7 +29,7 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
         public Image IconImage;
         public TMP_Text NameText;
         public TMP_Text GradeText;
-        public Image SelectOverlay;  // 선택됐을 때 표시
+        public Image SelectOverlay; // 선택됐을 때 표시
         public Button Button;
     }
 
@@ -39,18 +38,18 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
     {
         public GameObject Root;
         public Image IconImage;
-        public GameObject EmptyIndicator;  // 비어있을 때 표시 (예: + 아이콘)
+        public GameObject EmptyIndicator; // 비어있을 때 표시 (예: + 아이콘)
         public Button RemoveButton;
     }
 
-    // ????????????????????????????????????????????
-    //  인스펙터
-    // ????????????????????????????????????????????
-    [Header("아티팩트 데이터 (전체 30개 SO 등록)")]
+    // =========================
+    // 인스펙터
+    // =========================
+    [Header("아티팩트 데이터 (전체 SO 등록)")]
     [SerializeField] private List<NormalArtifactDefinition> allArtifacts = new List<NormalArtifactDefinition>();
 
     [Header("카드 생성")]
-    [SerializeField] private GameObject artifactCardPrefab;  // 카드 프리팹
+    [SerializeField] private GameObject artifactCardPrefab; // 카드 프리팹
     [SerializeField] private Transform cardListRoot;        // 카드 목록 부모
 
     [Header("선택 슬롯 UI")]
@@ -69,20 +68,29 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
     [SerializeField] private Color colorUnique = new Color(1.0f, 0.4f, 0.6f);
     [SerializeField] private Color colorLegend = new Color(1.0f, 0.75f, 0.2f);
 
-    // ????????????????????????????????????????????
-    //  런타임
-    // ????????????????????????????????????????????
+    // =========================
+    // 런타임
+    // =========================
     private readonly List<ArtifactCardUI> _cards = new List<ArtifactCardUI>();
     private readonly List<SelectedSlotUI> _slots = new List<SelectedSlotUI>();
     private readonly List<NormalArtifactDefinition> _selectedDefs = new List<NormalArtifactDefinition>(4);
 
     private const int MaxSelectCount = 4;
+    private bool _initialized;
 
-    // ????????????????????????????????????????????
-    //  초기화
-    // ????????????????????????????????????????????
+    // =========================
+    // 초기화
+    // =========================
     private void Awake()
     {
+        Initialize();
+    }
+
+    public void Initialize()
+    {
+        if (_initialized) return;
+        _initialized = true;
+
         BuildSelectedSlots();
         BuildArtifactCards();
         BindStartButton();
@@ -91,6 +99,8 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
 
     private void BuildSelectedSlots()
     {
+        _slots.Clear();
+
         for (int i = 0; i < selectedSlotRoots.Count; i++)
         {
             Transform tr = selectedSlotRoots[i];
@@ -105,7 +115,11 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
             };
 
             int captured = i;
-            slot.RemoveButton?.onClick.AddListener(() => OnClickRemoveSlot(captured));
+            if (slot.RemoveButton != null)
+            {
+                slot.RemoveButton.onClick.RemoveAllListeners();
+                slot.RemoveButton.onClick.AddListener(() => OnClickRemoveSlot(captured));
+            }
 
             _slots.Add(slot);
         }
@@ -115,7 +129,6 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
     {
         if (cardListRoot == null || artifactCardPrefab == null) return;
 
-        // 기존 자식 제거
         for (int i = cardListRoot.childCount - 1; i >= 0; i--)
             Destroy(cardListRoot.GetChild(i).gameObject);
 
@@ -126,6 +139,7 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
             if (def == null) continue;
 
             GameObject go = Instantiate(artifactCardPrefab, cardListRoot);
+
             var card = new ArtifactCardUI
             {
                 Def = def,
@@ -137,9 +151,12 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
                 Button = go.GetComponent<Button>() ?? go.AddComponent<Button>()
             };
 
-            // 데이터 바인딩
-            if (card.IconImage != null) card.IconImage.sprite = def.icon;
-            if (card.NameText != null) card.NameText.text = def.displayName;
+            if (card.IconImage != null)
+                card.IconImage.sprite = def.icon;
+
+            if (card.NameText != null)
+                card.NameText.text = def.displayName;
+
             if (card.GradeText != null)
             {
                 card.GradeText.text = GradeToString(def.grade);
@@ -147,6 +164,7 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
             }
 
             var capturedDef = def;
+            card.Button.onClick.RemoveAllListeners();
             card.Button.onClick.AddListener(() => OnClickArtifactCard(capturedDef));
 
             _cards.Add(card);
@@ -155,14 +173,50 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
 
     private void BindStartButton()
     {
-        startButton?.onClick.AddListener(OnClickStart);
+        if (startButton == null) return;
+
+        startButton.onClick.RemoveAllListeners();
+        startButton.onClick.AddListener(OnClickStart);
     }
 
-    // ????????????????????????????????????????????
-    //  이벤트 핸들러
-    // ????????????????????????????????????????????
+    // =========================
+    // LobbyManager 호환 API
+    // =========================
+    public void OpenPopup()
+    {
+        SetVisible(true);
+    }
+
+    public void ClosePopup()
+    {
+        SetVisible(false);
+    }
+
+    public void SetVisible(bool visible)
+    {
+        gameObject.SetActive(visible);
+
+        if (visible)
+            RefreshUI();
+    }
+
+    public bool HasValidSelection()
+    {
+        return _selectedDefs.Count > 0;
+    }
+
+    public void ApplyToSession()
+    {
+        NormalArtifactSession.Set(_selectedDefs);
+    }
+
+    // =========================
+    // 이벤트 핸들러
+    // =========================
     private void OnClickArtifactCard(NormalArtifactDefinition def)
     {
+        if (def == null) return;
+
         // 이미 선택됐으면 해제
         if (_selectedDefs.Contains(def))
         {
@@ -172,7 +226,8 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
         }
 
         // 슬롯이 가득 찼으면 무시
-        if (_selectedDefs.Count >= MaxSelectCount) return;
+        if (_selectedDefs.Count >= MaxSelectCount)
+            return;
 
         _selectedDefs.Add(def);
         RefreshUI();
@@ -180,21 +235,22 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
 
     private void OnClickRemoveSlot(int slotIndex)
     {
-        if (slotIndex < 0 || slotIndex >= _selectedDefs.Count) return;
+        if (slotIndex < 0 || slotIndex >= _selectedDefs.Count)
+            return;
+
         _selectedDefs.RemoveAt(slotIndex);
         RefreshUI();
     }
 
     private void OnClickStart()
     {
-        // 세션에 저장 후 씬 전환
-        NormalArtifactSession.Set(_selectedDefs);
+        ApplyToSession();
         SceneManager.LoadScene(normalSceneName);
     }
 
-    // ????????????????????????????????????????????
-    //  UI 갱신
-    // ????????????????????????????????????????????
+    // =========================
+    // UI 갱신
+    // =========================
     private void RefreshUI()
     {
         RefreshCardOverlays();
@@ -206,19 +262,24 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
     {
         foreach (var card in _cards)
         {
+            if (card == null) continue;
+
             bool isSelected = _selectedDefs.Contains(card.Def);
+
             if (card.SelectOverlay != null)
                 card.SelectOverlay.gameObject.SetActive(isSelected);
 
-            // 슬롯 가득 찼고 선택 안 된 카드는 반투명
             bool isFull = _selectedDefs.Count >= MaxSelectCount;
+
             if (card.Button != null)
                 card.Button.interactable = isSelected || !isFull;
 
             if (card.Root != null)
             {
-                var canvasGroup = card.Root.GetComponent<CanvasGroup>()
-                               ?? card.Root.AddComponent<CanvasGroup>();
+                var canvasGroup = card.Root.GetComponent<CanvasGroup>();
+                if (canvasGroup == null)
+                    canvasGroup = card.Root.AddComponent<CanvasGroup>();
+
                 canvasGroup.alpha = (!isSelected && isFull) ? 0.4f : 1f;
             }
         }
@@ -236,7 +297,9 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
             if (slot.IconImage != null)
             {
                 slot.IconImage.gameObject.SetActive(hasItem);
-                if (hasItem) slot.IconImage.sprite = _selectedDefs[i].icon;
+
+                if (hasItem)
+                    slot.IconImage.sprite = _selectedDefs[i].icon;
             }
 
             if (slot.EmptyIndicator != null)
@@ -249,14 +312,15 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
 
     private void RefreshStartButton()
     {
-        // 0개여도 시작 가능 (아티팩트 없이 플레이)
+        // 팝업 내부 StartButton은 0개여도 누를 수 있게 유지
+        // 실제 로비 시작 버튼에서는 LobbyManager가 HasValidSelection()으로 체크함
         if (startButton != null)
             startButton.interactable = true;
     }
 
-    // ????????????????????????????????????????????
-    //  헬퍼
-    // ????????????????????????????????????????????
+    // =========================
+    // 헬퍼
+    // =========================
     private static string GradeToString(ArtifactGrade grade) => grade switch
     {
         ArtifactGrade.Normal => "노말",

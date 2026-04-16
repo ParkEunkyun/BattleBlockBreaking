@@ -4602,74 +4602,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7f2b237c71a2a854d942cf432a251104, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  previewRoot: {fileID: 1409122502}
-  popupRoot: {fileID: 1058761087}
-  editArtifactButton: {fileID: 501345659}
-  previewIcons:
-  - {fileID: 33031121}
-  - {fileID: 811127790}
-  - {fileID: 1916577217}
-  - {fileID: 2035629869}
-  popupTitleText: {fileID: 482151057}
-  confirmButton: {fileID: 1770048194}
-  closeButton: {fileID: 361778491}
-  selectedPreviewIcons:
-  - {fileID: 1485514256}
-  - {fileID: 216810825}
-  - {fileID: 226745771}
-  - {fileID: 1514788585}
-  choiceButtons:
-  - button: {fileID: 109208143}
-    iconImage: {fileID: 927824715}
-    nameText: {fileID: 1594740433}
-    selectedFrame: {fileID: 935901645}
-    background: {fileID: 109208144}
-  - button: {fileID: 458704670}
-    iconImage: {fileID: 469494975}
-    nameText: {fileID: 2000700788}
-    selectedFrame: {fileID: 1850336370}
-    background: {fileID: 458704671}
-  - button: {fileID: 418168986}
-    iconImage: {fileID: 426694068}
-    nameText: {fileID: 311165393}
-    selectedFrame: {fileID: 1780233837}
-    background: {fileID: 418168987}
-  - button: {fileID: 1306312625}
-    iconImage: {fileID: 973906021}
-    nameText: {fileID: 763421745}
-    selectedFrame: {fileID: 1733791478}
-    background: {fileID: 1306312626}
-  - button: {fileID: 1137989219}
-    iconImage: {fileID: 390013110}
-    nameText: {fileID: 1740174570}
-    selectedFrame: {fileID: 1668014416}
-    background: {fileID: 1137989220}
-  - button: {fileID: 1753837936}
-    iconImage: {fileID: 1389080243}
-    nameText: {fileID: 2121182030}
-    selectedFrame: {fileID: 1664516751}
-    background: {fileID: 1753837937}
-  defaultArtifacts: 01000000020000000300000004000000
-  allArtifactOptions: 010000000200000003000000040000000500000006000000
-  artifactVisualEntries:
-  - artifactId: 1
-    displayName: Score Boost
-    iconSprite: {fileID: 21300000, guid: d85fce7e739764d499b5a6a9bb1aa43d, type: 3}
-  - artifactId: 2
-    displayName: Combo Boost
-    iconSprite: {fileID: 21300000, guid: 0f02ee28f0e7048e982002e2b20053c8, type: 3}
-  - artifactId: 3
-    displayName: Shape Reroll
-    iconSprite: {fileID: 21300000, guid: 52679178c916348b1824e3697a969f51, type: 3}
-  - artifactId: 4
-    displayName: Emergency Clear
-    iconSprite: {fileID: 21300000, guid: 38c43f600c22c4264b66b07fde5e0b7e, type: 3}
-  - artifactId: 5
-    displayName: Second Chance
-    iconSprite: {fileID: 21300000, guid: c9e8d781ff1864e5097142ff8ebd08ab, type: 3}
-  - artifactId: 6
-    displayName: Lucky Bonus
-    iconSprite: {fileID: 21300000, guid: 78306021f686b4506858fff385d6ee55, type: 3}
+  allArtifacts: []
+  artifactCardPrefab: {fileID: 0}
+  cardListRoot: {fileID: 0}
+  selectedSlotRoots: []
+  startButton: {fileID: 0}
+  normalSceneName: Scene_Normal
+  colorNormal: {r: 0.8, g: 0.8, b: 0.8, a: 1}
+  colorRare: {r: 0.4, g: 0.6, b: 1, a: 1}
+  colorEpic: {r: 0.6, g: 0.4, b: 1, a: 1}
+  colorUnique: {r: 1, g: 0.4, b: 0.6, a: 1}
+  colorLegend: {r: 1, g: 0.75, b: 0.2, a: 1}
 --- !u!4 &316278543
 Transform:
   m_ObjectHideFlags: 0
