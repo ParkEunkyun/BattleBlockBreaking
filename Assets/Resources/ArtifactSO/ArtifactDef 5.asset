@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ea23bd5ba43d3914db2bd64cd1f74081, type: 3}
-  m_Name: ArtifactDef
+  m_Name: ArtifactDef 5
   m_EditorClassIdentifier: 
   category: 0
-  grade: 0
+  grade: 4
   displayName: 
   description: 
-  icon: {fileID: 21300000, guid: 2cf5183f7fb154d0ba5350125024de08, type: 3}
+  icon: {fileID: 21300000, guid: c9e8d781ff1864e5097142ff8ebd08ab, type: 3}
   triggerType: 0
   cooldownSets: 0
   bonusScorePerCell: 0

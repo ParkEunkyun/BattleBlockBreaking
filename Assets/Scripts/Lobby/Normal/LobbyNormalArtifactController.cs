@@ -1,27 +1,10 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-/// <summary>
-/// 로비 씬에서 노말 모드 아티팩트를 선택하고,
-/// NormalArtifactSession에 저장한 뒤 노말 씬으로 이동합니다.
-///
-/// 하이어라키 예시:
-/// SafeArea/
-///   NormalLobbyRoot/
-///     ArtifactListRoot/   ← 전체 아티팩트 카드 목록 (스크롤뷰 Content 등)
-///     SelectedSlotRoot/
-///       SelectedSlot1~4   ← 선택된 슬롯 (아이콘 + 해제 버튼)
-///     StartButton         ← 게임 시작 버튼
-/// </summary>
 public sealed class LobbyNormalArtifactController : MonoBehaviour
 {
-    // =========================
-    // 내부 타입
-    // =========================
-    /// <summary>아티팩트 카드 1개 UI 정보</summary>
     private sealed class ArtifactCardUI
     {
         public NormalArtifactDefinition Def;
@@ -29,130 +12,214 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
         public Image IconImage;
         public TMP_Text NameText;
         public TMP_Text GradeText;
-        public Image SelectOverlay; // 선택됐을 때 표시
+        public Image SelectOverlay;
         public Button Button;
+        public CanvasGroup CanvasGroup;
     }
 
-    /// <summary>선택 슬롯 UI 1개</summary>
-    private sealed class SelectedSlotUI
+    private sealed class SlotUI
     {
         public GameObject Root;
         public Image IconImage;
-        public GameObject EmptyIndicator; // 비어있을 때 표시 (예: + 아이콘)
+        public GameObject EmptyIndicator;
         public Button RemoveButton;
     }
 
-    // =========================
-    // 인스펙터
-    // =========================
-    [Header("아티팩트 데이터 (전체 SO 등록)")]
+    [Header("Artifact Data")]
     [SerializeField] private List<NormalArtifactDefinition> allArtifacts = new List<NormalArtifactDefinition>();
 
-    [Header("카드 생성")]
-    [SerializeField] private GameObject artifactCardPrefab; // 카드 프리팹
-    [SerializeField] private Transform cardListRoot;        // 카드 목록 부모
+    [Header("Popup Card List")]
+    [SerializeField] private GameObject artifactCardPrefab;
+    [SerializeField] private Transform cardListRoot; // 팝업 ScrollView/Content
 
-    [Header("선택 슬롯 UI")]
-    [SerializeField] private List<Transform> selectedSlotRoots = new List<Transform>(); // 슬롯 4개
+    [Header("Popup Selected Slots")]
+    [SerializeField] private List<Transform> selectedSlotRoots = new List<Transform>(); // 팝업 안 4칸
 
-    [Header("버튼")]
-    [SerializeField] private Button startButton;
+    [Header("Preview Slots")]
+    [SerializeField] private List<Transform> previewSlotRoots = new List<Transform>(); // 로비 프리뷰 4칸
 
-    [Header("Scene")]
-    [SerializeField] private string normalSceneName = "Scene_Normal";
+    [Header("Popup Buttons")]
+    [SerializeField] private Button startButton;        // 팝업 확인 버튼으로 사용
+    [SerializeField] private Button closePopupButton;   // 팝업 닫기 버튼
 
-    [Header("등급별 색상 (인스펙터에서 지정)")]
+    [Header("Visible Roots")]
+    [SerializeField] private GameObject normalModeRoot; // 노말 모드 전용 루트
+    [SerializeField] private GameObject popupRoot;      // 아티팩트 팝업 루트
+    [SerializeField] private CanvasGroup popupCanvasGroup;
+
+    [Header("Grade Colors")]
     [SerializeField] private Color colorNormal = new Color(0.8f, 0.8f, 0.8f);
     [SerializeField] private Color colorRare = new Color(0.4f, 0.6f, 1.0f);
     [SerializeField] private Color colorEpic = new Color(0.6f, 0.4f, 1.0f);
     [SerializeField] private Color colorUnique = new Color(1.0f, 0.4f, 0.6f);
     [SerializeField] private Color colorLegend = new Color(1.0f, 0.75f, 0.2f);
 
-    // =========================
-    // 런타임
-    // =========================
     private readonly List<ArtifactCardUI> _cards = new List<ArtifactCardUI>();
-    private readonly List<SelectedSlotUI> _slots = new List<SelectedSlotUI>();
-    private readonly List<NormalArtifactDefinition> _selectedDefs = new List<NormalArtifactDefinition>(4);
+    private readonly List<SlotUI> _popupSlots = new List<SlotUI>();
+    private readonly List<SlotUI> _previewSlots = new List<SlotUI>();
 
-    private const int MaxSelectCount = 4;
+    // 실제 로비 장착 상태
+    private readonly List<NormalArtifactDefinition> _equippedDefs = new List<NormalArtifactDefinition>(4);
+
+    // 팝업에서 편집 중인 상태
+    private readonly List<NormalArtifactDefinition> _editingDefs = new List<NormalArtifactDefinition>(4);
+
     private bool _initialized;
+    private bool _popupOpen;
 
-    // =========================
-    // 초기화
-    // =========================
+    private const int MaxEquipCount = 4;
+
     private void Awake()
     {
         Initialize();
     }
 
+    // LobbyManager.Awake() 에서 호출
     public void Initialize()
     {
         if (_initialized) return;
         _initialized = true;
 
-        BuildSelectedSlots();
+        BuildPopupSlots();
+        BuildPreviewSlots();
         BuildArtifactCards();
-        BindStartButton();
-        RefreshUI();
+        BindButtons();
+
+        RefreshAllUI();
+        SetPopupVisible(false);
+        _popupOpen = false;
     }
 
-    private void BuildSelectedSlots()
+    // LobbyManager.RefreshModeUI() 에서 호출
+    public void SetVisible(bool visible)
     {
-        _slots.Clear();
+        if (normalModeRoot != null)
+            normalModeRoot.SetActive(visible);
+
+        if (!visible)
+        {
+            ClosePopup();
+            return;
+        }
+
+        RefreshAllUI();
+    }
+
+    // LobbyManager.OnClickStartBattle() 에서 선택 없을 때 호출
+    public void OpenPopup()
+    {
+        CopyList(_equippedDefs, _editingDefs);
+        _popupOpen = true;
+        SetPopupVisible(true);
+        RefreshAllUI();
+    }
+
+    public void ClosePopup()
+    {
+        _popupOpen = false;
+        CopyList(_equippedDefs, _editingDefs);
+        SetPopupVisible(false);
+        RefreshAllUI();
+    }
+
+    public bool HasValidSelection()
+    {
+        return _equippedDefs.Count > 0;
+    }
+
+    public void ApplyToSession()
+    {
+        NormalArtifactSession.Set(_equippedDefs);
+    }
+
+    private void BuildPopupSlots()
+    {
+        _popupSlots.Clear();
 
         for (int i = 0; i < selectedSlotRoots.Count; i++)
         {
             Transform tr = selectedSlotRoots[i];
             if (tr == null) continue;
 
-            var slot = new SelectedSlotUI
-            {
-                Root = tr.gameObject,
-                IconImage = tr.Find("Icon")?.GetComponent<Image>(),
-                EmptyIndicator = tr.Find("EmptyIndicator")?.gameObject,
-                RemoveButton = tr.Find("RemoveButton")?.GetComponent<Button>()
-            };
+            SlotUI slot = CreateSlotUI(tr);
+            int capturedIndex = i;
 
-            int captured = i;
             if (slot.RemoveButton != null)
             {
                 slot.RemoveButton.onClick.RemoveAllListeners();
-                slot.RemoveButton.onClick.AddListener(() => OnClickRemoveSlot(captured));
+                slot.RemoveButton.onClick.AddListener(() => OnClickRemoveEditingSlot(capturedIndex));
             }
 
-            _slots.Add(slot);
+            _popupSlots.Add(slot);
         }
+    }
+
+    private void BuildPreviewSlots()
+    {
+        _previewSlots.Clear();
+
+        for (int i = 0; i < previewSlotRoots.Count; i++)
+        {
+            Transform tr = previewSlotRoots[i];
+            if (tr == null) continue;
+
+            SlotUI slot = CreateSlotUI(tr);
+
+            if (slot.RemoveButton != null)
+            {
+                slot.RemoveButton.onClick.RemoveAllListeners();
+                slot.RemoveButton.gameObject.SetActive(false);
+            }
+
+            _previewSlots.Add(slot);
+        }
+    }
+
+    private static SlotUI CreateSlotUI(Transform tr)
+    {
+        return new SlotUI
+        {
+            Root = tr.gameObject,
+            IconImage = tr.Find("Icon") != null ? tr.Find("Icon").GetComponent<Image>() : null,
+            EmptyIndicator = tr.Find("EmptyIndicator") != null ? tr.Find("EmptyIndicator").gameObject : null,
+            RemoveButton = tr.Find("RemoveButton") != null ? tr.Find("RemoveButton").GetComponent<Button>() : null
+        };
     }
 
     private void BuildArtifactCards()
     {
-        if (cardListRoot == null || artifactCardPrefab == null) return;
+        if (cardListRoot == null || artifactCardPrefab == null)
+            return;
 
         for (int i = cardListRoot.childCount - 1; i >= 0; i--)
             Destroy(cardListRoot.GetChild(i).gameObject);
 
         _cards.Clear();
 
-        foreach (var def in allArtifacts)
+        foreach (NormalArtifactDefinition def in allArtifacts)
         {
             if (def == null) continue;
 
             GameObject go = Instantiate(artifactCardPrefab, cardListRoot);
 
-            var card = new ArtifactCardUI
+            ArtifactCardUI card = new ArtifactCardUI
             {
                 Def = def,
                 Root = go,
-                IconImage = go.transform.Find("Icon")?.GetComponent<Image>(),
-                NameText = go.transform.Find("NameText")?.GetComponent<TMP_Text>(),
-                GradeText = go.transform.Find("GradeText")?.GetComponent<TMP_Text>(),
-                SelectOverlay = go.transform.Find("SelectOverlay")?.GetComponent<Image>(),
-                Button = go.GetComponent<Button>() ?? go.AddComponent<Button>()
+                IconImage = go.transform.Find("Icon") != null ? go.transform.Find("Icon").GetComponent<Image>() : null,
+                NameText = go.transform.Find("NameText") != null ? go.transform.Find("NameText").GetComponent<TMP_Text>() : null,
+                GradeText = go.transform.Find("GradeText") != null ? go.transform.Find("GradeText").GetComponent<TMP_Text>() : null,
+                SelectOverlay = go.transform.Find("SelectOverlay") != null ? go.transform.Find("SelectOverlay").GetComponent<Image>() : null,
+                Button = go.GetComponent<Button>() != null ? go.GetComponent<Button>() : go.AddComponent<Button>(),
+                CanvasGroup = go.GetComponent<CanvasGroup>() != null ? go.GetComponent<CanvasGroup>() : go.AddComponent<CanvasGroup>()
             };
 
             if (card.IconImage != null)
+            {
                 card.IconImage.sprite = def.icon;
+                card.IconImage.enabled = def.icon != null;
+                card.IconImage.preserveAspect = true;
+            }
 
             if (card.NameText != null)
                 card.NameText.text = def.displayName;
@@ -163,7 +230,7 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
                 card.GradeText.color = GradeToColor(def.grade);
             }
 
-            var capturedDef = def;
+            NormalArtifactDefinition capturedDef = def;
             card.Button.onClick.RemoveAllListeners();
             card.Button.onClick.AddListener(() => OnClickArtifactCard(capturedDef));
 
@@ -171,173 +238,184 @@ public sealed class LobbyNormalArtifactController : MonoBehaviour
         }
     }
 
-    private void BindStartButton()
+    private void BindButtons()
     {
-        if (startButton == null) return;
+        if (startButton != null)
+        {
+            startButton.onClick.RemoveAllListeners();
+            startButton.onClick.AddListener(OnClickConfirmPopup);
+        }
 
-        startButton.onClick.RemoveAllListeners();
-        startButton.onClick.AddListener(OnClickStart);
+        if (closePopupButton != null)
+        {
+            closePopupButton.onClick.RemoveAllListeners();
+            closePopupButton.onClick.AddListener(ClosePopup);
+        }
     }
 
-    // =========================
-    // LobbyManager 호환 API
-    // =========================
-    public void OpenPopup()
-    {
-        SetVisible(true);
-    }
-
-    public void ClosePopup()
-    {
-        SetVisible(false);
-    }
-
-    public void SetVisible(bool visible)
-    {
-        gameObject.SetActive(visible);
-
-        if (visible)
-            RefreshUI();
-    }
-
-    public bool HasValidSelection()
-    {
-        return _selectedDefs.Count > 0;
-    }
-
-    public void ApplyToSession()
-    {
-        NormalArtifactSession.Set(_selectedDefs);
-    }
-
-    // =========================
-    // 이벤트 핸들러
-    // =========================
     private void OnClickArtifactCard(NormalArtifactDefinition def)
     {
+        if (!_popupOpen) return;
         if (def == null) return;
 
-        // 이미 선택됐으면 해제
-        if (_selectedDefs.Contains(def))
+        int existingIndex = _editingDefs.IndexOf(def);
+        if (existingIndex >= 0)
         {
-            _selectedDefs.Remove(def);
-            RefreshUI();
+            _editingDefs.RemoveAt(existingIndex);
+            RefreshAllUI();
             return;
         }
 
-        // 슬롯이 가득 찼으면 무시
-        if (_selectedDefs.Count >= MaxSelectCount)
+        if (_editingDefs.Count >= MaxEquipCount)
             return;
 
-        _selectedDefs.Add(def);
-        RefreshUI();
+        _editingDefs.Add(def);
+        RefreshAllUI();
     }
 
-    private void OnClickRemoveSlot(int slotIndex)
+    private void OnClickRemoveEditingSlot(int slotIndex)
     {
-        if (slotIndex < 0 || slotIndex >= _selectedDefs.Count)
-            return;
+        if (!_popupOpen) return;
+        if (slotIndex < 0 || slotIndex >= _editingDefs.Count) return;
 
-        _selectedDefs.RemoveAt(slotIndex);
-        RefreshUI();
+        _editingDefs.RemoveAt(slotIndex);
+        RefreshAllUI();
     }
 
-    private void OnClickStart()
+    // 팝업 확인 = 장착 확정만
+    private void OnClickConfirmPopup()
     {
-        ApplyToSession();
-        SceneManager.LoadScene(normalSceneName);
+        CopyList(_editingDefs, _equippedDefs);
+        _popupOpen = false;
+        SetPopupVisible(false);
+        RefreshAllUI();
     }
 
-    // =========================
-    // UI 갱신
-    // =========================
-    private void RefreshUI()
+    private void RefreshAllUI()
     {
         RefreshCardOverlays();
-        RefreshSelectedSlots();
-        RefreshStartButton();
+        RefreshPopupSlots();
+        RefreshPreviewSlots();
+        RefreshButtons();
     }
 
     private void RefreshCardOverlays()
     {
-        foreach (var card in _cards)
+        bool isFull = _editingDefs.Count >= MaxEquipCount;
+
+        for (int i = 0; i < _cards.Count; i++)
         {
+            ArtifactCardUI card = _cards[i];
             if (card == null) continue;
 
-            bool isSelected = _selectedDefs.Contains(card.Def);
+            bool selected = _editingDefs.Contains(card.Def);
 
             if (card.SelectOverlay != null)
-                card.SelectOverlay.gameObject.SetActive(isSelected);
-
-            bool isFull = _selectedDefs.Count >= MaxSelectCount;
+                card.SelectOverlay.gameObject.SetActive(selected);
 
             if (card.Button != null)
-                card.Button.interactable = isSelected || !isFull;
+                card.Button.interactable = _popupOpen && (selected || !isFull);
 
-            if (card.Root != null)
+            if (card.CanvasGroup != null)
             {
-                var canvasGroup = card.Root.GetComponent<CanvasGroup>();
-                if (canvasGroup == null)
-                    canvasGroup = card.Root.AddComponent<CanvasGroup>();
-
-                canvasGroup.alpha = (!isSelected && isFull) ? 0.4f : 1f;
+                if (!_popupOpen)
+                    card.CanvasGroup.alpha = 1f;
+                else
+                    card.CanvasGroup.alpha = (!selected && isFull) ? 0.45f : 1f;
             }
         }
     }
 
-    private void RefreshSelectedSlots()
+    private void RefreshPopupSlots()
     {
-        for (int i = 0; i < _slots.Count; i++)
+        for (int i = 0; i < _popupSlots.Count; i++)
+            RefreshSingleSlot(_popupSlots[i], _editingDefs, i, true);
+    }
+
+    private void RefreshPreviewSlots()
+    {
+        for (int i = 0; i < _previewSlots.Count; i++)
+            RefreshSingleSlot(_previewSlots[i], _equippedDefs, i, false);
+    }
+
+    private static void RefreshSingleSlot(SlotUI slot, List<NormalArtifactDefinition> source, int index, bool allowRemove)
+    {
+        if (slot == null) return;
+
+        bool hasItem = index < source.Count;
+        NormalArtifactDefinition def = hasItem ? source[index] : null;
+
+        if (slot.IconImage != null)
         {
-            var slot = _slots[i];
-            if (slot == null) continue;
-
-            bool hasItem = i < _selectedDefs.Count;
-
-            if (slot.IconImage != null)
-            {
-                slot.IconImage.gameObject.SetActive(hasItem);
-
-                if (hasItem)
-                    slot.IconImage.sprite = _selectedDefs[i].icon;
-            }
-
-            if (slot.EmptyIndicator != null)
-                slot.EmptyIndicator.SetActive(!hasItem);
-
-            if (slot.RemoveButton != null)
-                slot.RemoveButton.gameObject.SetActive(hasItem);
+            slot.IconImage.gameObject.SetActive(hasItem);
+            slot.IconImage.sprite = hasItem ? def.icon : null;
+            slot.IconImage.enabled = hasItem && def != null && def.icon != null;
+            slot.IconImage.preserveAspect = true;
         }
+
+        if (slot.EmptyIndicator != null)
+            slot.EmptyIndicator.SetActive(!hasItem);
+
+        if (slot.RemoveButton != null)
+            slot.RemoveButton.gameObject.SetActive(allowRemove && hasItem);
     }
 
-    private void RefreshStartButton()
+    private void RefreshButtons()
     {
-        // 팝업 내부 StartButton은 0개여도 누를 수 있게 유지
-        // 실제 로비 시작 버튼에서는 LobbyManager가 HasValidSelection()으로 체크함
         if (startButton != null)
             startButton.interactable = true;
     }
 
-    // =========================
-    // 헬퍼
-    // =========================
-    private static string GradeToString(ArtifactGrade grade) => grade switch
+    private void SetPopupVisible(bool visible)
     {
-        ArtifactGrade.Normal => "노말",
-        ArtifactGrade.Rare => "레어",
-        ArtifactGrade.Epic => "에픽",
-        ArtifactGrade.Unique => "유니크",
-        ArtifactGrade.Legend => "전설",
-        _ => ""
-    };
+        if (popupRoot != null)
+            popupRoot.SetActive(visible);
 
-    private Color GradeToColor(ArtifactGrade grade) => grade switch
+        if (popupCanvasGroup != null)
+        {
+            popupCanvasGroup.alpha = visible ? 1f : 0f;
+            popupCanvasGroup.interactable = visible;
+            popupCanvasGroup.blocksRaycasts = visible;
+        }
+    }
+
+    private static void CopyList(List<NormalArtifactDefinition> src, List<NormalArtifactDefinition> dst)
     {
-        ArtifactGrade.Normal => colorNormal,
-        ArtifactGrade.Rare => colorRare,
-        ArtifactGrade.Epic => colorEpic,
-        ArtifactGrade.Unique => colorUnique,
-        ArtifactGrade.Legend => colorLegend,
-        _ => Color.white
-    };
+        dst.Clear();
+
+        for (int i = 0; i < src.Count && i < MaxEquipCount; i++)
+        {
+            NormalArtifactDefinition def = src[i];
+            if (def == null) continue;
+            if (dst.Contains(def)) continue;
+
+            dst.Add(def);
+        }
+    }
+
+    private static string GradeToString(ArtifactGrade grade)
+    {
+        switch (grade)
+        {
+            case ArtifactGrade.Normal: return "노말";
+            case ArtifactGrade.Rare: return "레어";
+            case ArtifactGrade.Epic: return "에픽";
+            case ArtifactGrade.Unique: return "유니크";
+            case ArtifactGrade.Legend: return "전설";
+            default: return string.Empty;
+        }
+    }
+
+    private Color GradeToColor(ArtifactGrade grade)
+    {
+        switch (grade)
+        {
+            case ArtifactGrade.Normal: return colorNormal;
+            case ArtifactGrade.Rare: return colorRare;
+            case ArtifactGrade.Epic: return colorEpic;
+            case ArtifactGrade.Unique: return colorUnique;
+            case ArtifactGrade.Legend: return colorLegend;
+            default: return Color.white;
+        }
+    }
 }

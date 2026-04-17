@@ -7434,11 +7434,11 @@ MonoBehaviour:
   myBoardCellSize: {x: 125, y: 125}
   myBoardSpacing: {x: -1, y: -1}
   opponentMiniCellSize: {x: 40, y: 40}
-  opponentMiniSpacing: {x: 1, y: 1}
+  opponentMiniSpacing: {x: -1, y: -1}
   slotPreviewCellSize: 75
-  slotPreviewSpacing: 1
+  slotPreviewSpacing: -1
   dragPreviewCellSize: 125
-  dragPreviewSpacing: 1
+  dragPreviewSpacing: -1
   dragOffset: {x: 0, y: 180}
   maxRounds: 12
   defensePhaseSeconds: 5
@@ -7462,23 +7462,23 @@ MonoBehaviour:
   myNickname: Me
   opponentNickname: Opponent
   opponentScore: 0
-  h3CellSprite: {fileID: -739009968, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  l3CellSprite: {fileID: -739009968, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  h4CellSprite: {fileID: -339068557, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  o4CellSprite: {fileID: -339068557, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  t4CellSprite: {fileID: -1884510018, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  l4CellSprite: {fileID: -1884510018, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  l4MCellSprite: {fileID: 1692553810, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  z4CellSprite: {fileID: 1692553810, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  z4MCellSprite: {fileID: 1467438889, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  h5CellSprite: {fileID: 1467438889, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  p5CellSprite: {fileID: -739009968, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  t5CellSprite: {fileID: -739009968, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  l5CellSprite: {fileID: -339068557, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  curseDiag3CellSprite: {fileID: -339068557, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  curseSplit3CellSprite: {fileID: -1884510018, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  curseDiag4CellSprite: {fileID: 1692553810, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
-  curseSplit4CellSprite: {fileID: 1467438889, guid: e8f2d8fb2c7917247b30786b01eb5259, type: 3}
+  h3CellSprite: {fileID: -1128444859, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  l3CellSprite: {fileID: -1128444859, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  h4CellSprite: {fileID: -1352282757, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  o4CellSprite: {fileID: -1352282757, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  t4CellSprite: {fileID: 588408025, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  l4CellSprite: {fileID: 588408025, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  l4MCellSprite: {fileID: 660595317, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  z4CellSprite: {fileID: 660595317, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  z4MCellSprite: {fileID: -735295249, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  h5CellSprite: {fileID: -735295249, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  p5CellSprite: {fileID: -1128444859, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  t5CellSprite: {fileID: -1128444859, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  l5CellSprite: {fileID: -1352282757, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  curseDiag3CellSprite: {fileID: -1352282757, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  curseSplit3CellSprite: {fileID: 588408025, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  curseDiag4CellSprite: {fileID: 660595317, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+  curseSplit4CellSprite: {fileID: -735295249, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
   loadingRoot: {fileID: 9063749476722337136}
   loadingText: {fileID: 5393886516711085669}
   _incomingAttackTelegraphView: {fileID: 296450622}
@@ -8247,7 +8247,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 0}
-  m_AnchoredPosition: {x: 0, y: 450}
+  m_AnchoredPosition: {x: 0, y: 500}
   m_SizeDelta: {x: -680, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1664656714
@@ -9088,7 +9088,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 0}
-  m_AnchoredPosition: {x: 0, y: 320}
+  m_AnchoredPosition: {x: 0, y: 363}
   m_SizeDelta: {x: -40, y: 200}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!114 &1748639890

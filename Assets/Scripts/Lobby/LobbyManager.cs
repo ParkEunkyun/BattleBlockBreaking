@@ -120,38 +120,38 @@ public class LobbyManager : MonoBehaviour
     private GameMode _gameMode = GameMode.Ranked;
     private Coroutine _matchRoutine;
 
-    [SerializeField] private TMP_Text _nicknameText;
-    [SerializeField] private TMP_Text _tierText;
-    [SerializeField] private TMP_Text _goldText;
-    [SerializeField] private TMP_Text _seasonText;
-    [SerializeField] private TMP_Text _missionText;
-    [SerializeField] private TMP_Text _noticeText;
-    [SerializeField] private TMP_Text _matchStatusText;
-    [SerializeField] private TMP_Text _popupTitleText;
+    private TMP_Text _nicknameText;
+    private TMP_Text _tierText;
+    private TMP_Text _goldText;
+    private TMP_Text _seasonText;
+    private TMP_Text _missionText;
+    private TMP_Text _noticeText;
+    private TMP_Text _matchStatusText;
+    private TMP_Text _popupTitleText;
 
-    [SerializeField] private Button _settingsButton;
-    [SerializeField] private Button _startBattleButton;
-    [SerializeField] private Button _rankedModeButton;
-    [SerializeField] private Button _normalModeButton;
-    [SerializeField] private Button _editAttackLoadoutButton;
-    [SerializeField] private Button _editSupportLoadoutButton;
-    [SerializeField] private Button _confirmLoadoutButton;
-    [SerializeField] private Button _closeLoadoutButton;
-    [SerializeField] private Button _cancelMatchButton;
-    [SerializeField] private Button _loadoutTabButton;
-    [SerializeField] private Button _homeTabButton;
-    [SerializeField] private Button _shopTabButton;
-    [SerializeField] private Button _recordTabButton;
-    [SerializeField] private Button _claimRewardButton;
+    private Button _settingsButton;
+    private Button _startBattleButton;
+    private Button _rankedModeButton;
+    private Button _normalModeButton;
+    private Button _editAttackLoadoutButton;
+    private Button _editSupportLoadoutButton;
+    private Button _confirmLoadoutButton;
+    private Button _closeLoadoutButton;
+    private Button _cancelMatchButton;
+    private Button _loadoutTabButton;
+    private Button _homeTabButton;
+    private Button _shopTabButton;
+    private Button _recordTabButton;
+    private Button _claimRewardButton;
 
-    [SerializeField] private GameObject _loadoutPopupRoot;
-    [SerializeField] private GameObject _matchPopupRoot;
+    private GameObject _loadoutPopupRoot;
+    private GameObject _matchPopupRoot;
 
-    [SerializeField] private GameObject _nicknamePopupRoot;
+    private GameObject _nicknamePopupRoot;
     [SerializeField] private TMP_InputField _nicknameInputField;
-    [SerializeField] private Button _confirmNicknameButton;
-    [SerializeField] private Button _closeNicknameButton;
-    [SerializeField] private TMP_Text _nicknameGuideText;
+    private Button _confirmNicknameButton;
+    private Button _closeNicknameButton;
+    private TMP_Text _nicknameGuideText;
     [SerializeField] private bool _nicknameInfoLoaded;
 
     private readonly Image[] _attackPreviewIcons = new Image[3];
@@ -165,8 +165,16 @@ public class LobbyManager : MonoBehaviour
     private static readonly Color32 ChoiceSelectedColor = new Color32(255, 255, 255, 255);
     private static readonly Color32 ChoiceUnselectedColor = new Color32(145, 145, 145, 255);
 
-    [SerializeField] private Sprite selectSprite;
-    [SerializeField] private Sprite normalSprite;
+    private Sprite selectSprite;
+    private Sprite normalSprite;
+
+    [Header("Mode Button Colors")]
+    [SerializeField] private Color modeButtonSelectedColor = new Color(1f, 0.85f, 0.35f, 1f);
+    [SerializeField] private Color modeButtonNormalColor = new Color(1f, 1f, 1f, 1f);
+    [SerializeField] private Color modeButtonSelectedTextColor = new Color(0.15f, 0.15f, 0.15f, 1f);
+    [SerializeField] private Color modeButtonNormalTextColor = new Color(1f, 1f, 1f, 1f);
+    [SerializeField] private Vector3 modeButtonSelectedScale = new Vector3(1.05f, 1.05f, 1f);
+    [SerializeField] private Vector3 modeButtonNormalScale = new Vector3(1f, 1f, 1f);
 
     private bool IsRankedMode => _gameMode == GameMode.Ranked;
     private bool IsNormalMode => _gameMode == GameMode.Normal;
@@ -181,32 +189,50 @@ public class LobbyManager : MonoBehaviour
 
     [SerializeField] private GameObject _attackLoadoutPanel;
     [SerializeField] private GameObject _supportLoadoutPanel;
-    [SerializeField] private LobbyNormalArtifactController _normalArtifactController;
+
+    private Transform _loadoutPreviewRoot;
+    private Transform _normalArtifactPreviewRoot;
+
+    [Header("Normal Artifact")]
+    [SerializeField] private List<NormalArtifactDefinition> _allNormalArtifactOptions = new List<NormalArtifactDefinition>();
+
+    private readonly List<NormalArtifactDefinition> _selectedNormalArtifacts = new List<NormalArtifactDefinition>(4);
+    private readonly List<NormalArtifactDefinition> _editingNormalArtifacts = new List<NormalArtifactDefinition>(4);
+
+    private readonly Image[] _normalArtifactPreviewIcons = new Image[4];
+    private readonly Image[] _selectedNormalArtifactPreviewIcons = new Image[4];
+    private ChoiceButtonRefs[] _normalArtifactChoiceButtons = new ChoiceButtonRefs[0];
+
+    [SerializeField] private Button _editNormalArtifactButton;
+    [SerializeField] private Button _confirmNormalArtifactButton;
+    [SerializeField] private Button _closeNormalArtifactButton;
+    [SerializeField] private GameObject _normalArtifactPopupRoot;
+    [SerializeField] private GameObject _normalArtifactPopupPanel;
+    [SerializeField] private TMP_Text _normalArtifactPopupTitleText;
+
+    private const string PrefNormalArtifactCount = "BBB_LOBBY_NORMAL_ARTIFACT_COUNT";
+    private const string PrefNormalArtifact0 = "BBB_LOBBY_NORMAL_ARTIFACT_0";
+    private const string PrefNormalArtifact1 = "BBB_LOBBY_NORMAL_ARTIFACT_1";
+    private const string PrefNormalArtifact2 = "BBB_LOBBY_NORMAL_ARTIFACT_2";
+    private const string PrefNormalArtifact3 = "BBB_LOBBY_NORMAL_ARTIFACT_3";
 
     private void Awake()
     {
         BuildVisualMaps();
-
         CacheHierarchy();
+        CacheNormalArtifactUiRefs();
         BindButtons();
-
         LoadSavedLoadoutOrDefault();
-
-        if (_normalArtifactController != null)
-            _normalArtifactController.Initialize();
-
+        LoadSavedNormalArtifactsOrDefault();
         RefreshNicknameFromBackend();
         ApplyProfileTexts();
-
         RefreshModeUI();
         RefreshPreviewUI();
-
         HideLoadoutPopup();
+        HideNormalArtifactPopup();
         HideMatchPopup();
         HideNicknamePopup();
-
         ApplyRankedRecordUi();
-
         TryOpenNicknamePopup();
     }
     private void Start()
@@ -252,7 +278,7 @@ public class LobbyManager : MonoBehaviour
         Transform safeArea = FindSafeArea();
         if (safeArea == null)
         {
-            Debug.LogError("SafeArea 못 찾음");
+            Debug.LogError("SafeArea 를 찾을 수 없음");
             return;
         }
 
@@ -291,6 +317,15 @@ public class LobbyManager : MonoBehaviour
         _closeNicknameButton = FindButton(safeArea, "NicknamePopupRoot/NicknamePopupPanel/Bottom/CloseNicknameButton");
         _nicknameGuideText = FindTMP(safeArea, "NicknamePopupRoot/NicknamePopupPanel/Top/GuideText");
 
+        _loadoutPreviewRoot = safeArea.Find("MainContentRoot/LoadoutPreviewRoot");
+        _normalArtifactPreviewRoot = safeArea.Find("MainContentRoot/LoadoutPreviewRoot/NormalArtifactPreviewRoot");
+
+        if (_attackLoadoutPanel == null)
+            _attackLoadoutPanel = FindGO(safeArea, "MainContentRoot/LoadoutPreviewRoot/AttackLoadoutPanel");
+
+        if (_supportLoadoutPanel == null)
+            _supportLoadoutPanel = FindGO(safeArea, "MainContentRoot/LoadoutPreviewRoot/SupportLoadoutPanel");
+
         for (int i = 0; i < 3; i++)
         {
             Transform slot = safeArea.Find($"MainContentRoot/LoadoutPreviewRoot/AttackLoadoutPanel/AttackSlot{i + 1}");
@@ -326,6 +361,24 @@ public class LobbyManager : MonoBehaviour
             Transform tr = safeArea.Find($"LoadoutPopupRoot/LoadoutPopupPanel/SupportSelectRoot/SupportItemButton{i + 1}");
             _supportChoiceButtons[i] = CacheChoiceButton(tr, false);
         }
+
+        // 모드 버튼 스프라이트 캐시
+        Image rankedBg = _rankedModeButton != null ? _rankedModeButton.GetComponent<Image>() : null;
+        Image normalBg = _normalModeButton != null ? _normalModeButton.GetComponent<Image>() : null;
+
+        if ((selectSprite == null || normalSprite == null) && rankedBg != null && normalBg != null)
+        {
+            if (startGameMode == GameMode.Ranked)
+            {
+                selectSprite = rankedBg.sprite;
+                normalSprite = normalBg.sprite;
+            }
+            else
+            {
+                selectSprite = normalBg.sprite;
+                normalSprite = rankedBg.sprite;
+            }
+        }
     }
 
     private void BindButtons()
@@ -351,8 +404,7 @@ public class LobbyManager : MonoBehaviour
                 RefreshModeUI();
                 SaveLoadout();
 
-                if (_normalArtifactController != null)
-                    _normalArtifactController.ClosePopup();
+                CloseNormalArtifactPopup();
 
                 CloseLoadoutPopup();
             });
@@ -367,8 +419,7 @@ public class LobbyManager : MonoBehaviour
                 RefreshModeUI();
                 SaveLoadout();
 
-                if (_normalArtifactController != null)
-                    _normalArtifactController.ClosePopup();
+                CloseNormalArtifactPopup();
 
                 CloseLoadoutPopup();
             });
@@ -386,16 +437,34 @@ public class LobbyManager : MonoBehaviour
             _editSupportLoadoutButton.onClick.AddListener(OpenLoadoutPopup);
         }
 
+        if (_editNormalArtifactButton != null)
+        {
+            _editNormalArtifactButton.onClick.RemoveAllListeners();
+            _editNormalArtifactButton.onClick.AddListener(OpenNormalArtifactPopup);
+        }
+
         if (_confirmLoadoutButton != null)
         {
             _confirmLoadoutButton.onClick.RemoveAllListeners();
             _confirmLoadoutButton.onClick.AddListener(ConfirmLoadoutSelection);
         }
 
+        if (_confirmNormalArtifactButton != null)
+        {
+            _confirmNormalArtifactButton.onClick.RemoveAllListeners();
+            _confirmNormalArtifactButton.onClick.AddListener(ConfirmNormalArtifactSelection);
+        }
+
         if (_closeLoadoutButton != null)
         {
             _closeLoadoutButton.onClick.RemoveAllListeners();
             _closeLoadoutButton.onClick.AddListener(CloseLoadoutPopup);
+        }
+
+        if (_closeNormalArtifactButton != null)
+        {
+            _closeNormalArtifactButton.onClick.RemoveAllListeners();
+            _closeNormalArtifactButton.onClick.AddListener(CloseNormalArtifactPopup);
         }
 
         if (_cancelMatchButton != null)
@@ -464,6 +533,17 @@ public class LobbyManager : MonoBehaviour
             int index = i;
             _supportChoiceButtons[i].button.onClick.RemoveAllListeners();
             _supportChoiceButtons[i].button.onClick.AddListener(() => ToggleSupportChoice(index));
+        }
+
+        for (int i = 0; i < _normalArtifactChoiceButtons.Length; i++)
+        {
+            ChoiceButtonRefs refs = _normalArtifactChoiceButtons[i];
+            if (refs == null || refs.button == null)
+                continue;
+
+            int index = i;
+            refs.button.onClick.RemoveAllListeners();
+            refs.button.onClick.AddListener(() => ToggleNormalArtifactChoice(index));
         }
     }
 
@@ -542,20 +622,16 @@ public class LobbyManager : MonoBehaviour
 
     private void SaveLoadout()
     {
-        if (_selectedAttackLoadout.Count >= 3)
-        {
-            PlayerPrefs.SetInt(PrefAttack0, (int)_selectedAttackLoadout[0]);
-            PlayerPrefs.SetInt(PrefAttack1, (int)_selectedAttackLoadout[1]);
-            PlayerPrefs.SetInt(PrefAttack2, (int)_selectedAttackLoadout[2]);
-        }
+        PlayerPrefs.SetInt(PrefAttack0, (int)(_selectedAttackLoadout.Count > 0 ? _selectedAttackLoadout[0] : BattleManager.AttackItemId.None));
+        PlayerPrefs.SetInt(PrefAttack1, (int)(_selectedAttackLoadout.Count > 1 ? _selectedAttackLoadout[1] : BattleManager.AttackItemId.None));
+        PlayerPrefs.SetInt(PrefAttack2, (int)(_selectedAttackLoadout.Count > 2 ? _selectedAttackLoadout[2] : BattleManager.AttackItemId.None));
 
-        if (_selectedSupportLoadout.Count >= 2)
-        {
-            PlayerPrefs.SetInt(PrefSupport0, (int)_selectedSupportLoadout[0]);
-            PlayerPrefs.SetInt(PrefSupport1, (int)_selectedSupportLoadout[1]);
-        }
+        PlayerPrefs.SetInt(PrefSupport0, (int)(_selectedSupportLoadout.Count > 0 ? _selectedSupportLoadout[0] : BattleManager.SupportItemId.None));
+        PlayerPrefs.SetInt(PrefSupport1, (int)(_selectedSupportLoadout.Count > 1 ? _selectedSupportLoadout[1] : BattleManager.SupportItemId.None));
 
         PlayerPrefs.SetInt(PrefMode, (int)_gameMode);
+
+        SaveNormalArtifacts();
         PlayerPrefs.Save();
     }
 
@@ -581,10 +657,14 @@ public class LobbyManager : MonoBehaviour
         if (_supportLoadoutPanel != null)
             _supportLoadoutPanel.SetActive(IsRankedMode);
 
-        if (_normalArtifactController != null)
-            _normalArtifactController.SetVisible(IsNormalMode);
+        if (_normalArtifactPreviewRoot != null)
+            _normalArtifactPreviewRoot.gameObject.SetActive(IsNormalMode);
+
+        if (!IsNormalMode)
+            CloseNormalArtifactPopup();
 
         SetTMP(_popupTitleText, "로드아웃 편집");
+        SetTMP(_normalArtifactPopupTitleText, "아티팩트 장착");
     }
 
     private void SetModeButtonVisual(Button button, bool selected)
@@ -594,7 +674,17 @@ public class LobbyManager : MonoBehaviour
 
         Image bg = button.GetComponent<Image>();
         if (bg != null)
-            bg.sprite = selected ? selectSprite : normalSprite;
+        {
+            bg.color = selected ? modeButtonSelectedColor : modeButtonNormalColor;
+        }
+
+        TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+        if (label != null)
+        {
+            label.color = selected ? modeButtonSelectedTextColor : modeButtonNormalTextColor;
+        }
+
+        button.transform.localScale = selected ? modeButtonSelectedScale : modeButtonNormalScale;
     }
 
     private void RefreshPreviewUI()
@@ -616,6 +706,8 @@ public class LobbyManager : MonoBehaviour
 
             SetPreviewIcon(_supportPreviewIcons[i], GetSupportSprite(itemId), itemId != BattleManager.SupportItemId.None);
         }
+
+        RefreshNormalArtifactPreviewUI();
     }
 
     private void OpenLoadoutPopup()
@@ -952,20 +1044,13 @@ public class LobbyManager : MonoBehaviour
 
             case GameMode.Normal:
                 {
-                    if (_normalArtifactController == null)
+                    if (_selectedNormalArtifacts.Count <= 0)
                     {
-                        Debug.LogError("[LobbyManager] _normalArtifactController 가 연결되지 않았습니다.");
+                        OpenNormalArtifactPopup();
                         return;
                     }
 
-                    if (!_normalArtifactController.HasValidSelection())
-                    {
-                        _normalArtifactController.OpenPopup();
-                        return;
-                    }
-
-                    _normalArtifactController.ApplyToSession();
-
+                    ApplyNormalArtifactsToSession();
                     ShowMatchPopup("노말 모드 준비중...");
                     _matchRoutine = StartCoroutine(CoEnterScene(normalSceneName));
                     break;
@@ -1369,5 +1454,265 @@ public class LobbyManager : MonoBehaviour
         }
 
         return nickname; // fallback
+    }
+    private void CacheNormalArtifactUiRefs()
+    {
+        Transform safeArea = FindSafeArea();
+        Transform previewRoot = _normalArtifactPreviewRoot;
+
+        for (int i = 0; i < _normalArtifactPreviewIcons.Length; i++)
+        {
+            Transform slot = previewRoot != null ? previewRoot.Find($"ArtifactSlot{i + 1}") : null;
+            _normalArtifactPreviewIcons[i] = EnsureSlotIcon(slot);
+        }
+
+        _editNormalArtifactButton = previewRoot != null
+            ? previewRoot.Find("EditArtifactButton")?.GetComponent<Button>()
+            : null;
+
+        _normalArtifactPopupRoot = safeArea != null
+            ? safeArea.Find("ArtifactPopupRoot")?.gameObject
+            : null;
+
+        _normalArtifactPopupPanel = _normalArtifactPopupRoot != null
+            ? _normalArtifactPopupRoot.transform.Find("ArtifactPopupPanel")?.gameObject
+            : null;
+
+        Transform popupPanel = _normalArtifactPopupPanel != null
+            ? _normalArtifactPopupPanel.transform
+            : null;
+
+        _normalArtifactPopupTitleText = popupPanel != null
+            ? popupPanel.Find("PopupTitleText")?.GetComponent<TMP_Text>()
+            : null;
+
+        for (int i = 0; i < _selectedNormalArtifactPreviewIcons.Length; i++)
+        {
+            Transform slot = popupPanel != null ? popupPanel.Find($"SelectedArtifactSlot{i + 1}") : null;
+            _selectedNormalArtifactPreviewIcons[i] = EnsureSlotIcon(slot);
+        }
+
+        _normalArtifactChoiceButtons = new ChoiceButtonRefs[_allNormalArtifactOptions.Count];
+
+        for (int i = 0; i < _allNormalArtifactOptions.Count; i++)
+        {
+            Transform buttonRoot = popupPanel != null ? popupPanel.Find($"AttackItemButton ({i + 1})") : null;
+            _normalArtifactChoiceButtons[i] = CacheChoiceButton(buttonRoot);
+        }
+
+        _confirmNormalArtifactButton = popupPanel != null
+            ? popupPanel.Find("ConfirmArtifactButton")?.GetComponent<Button>()
+            : null;
+
+        _closeNormalArtifactButton = popupPanel != null
+            ? popupPanel.Find("CloseArtifactButton")?.GetComponent<Button>()
+            : null;
+    }
+
+    private void LoadSavedNormalArtifactsOrDefault()
+    {
+        _selectedNormalArtifacts.Clear();
+        _editingNormalArtifacts.Clear();
+
+        int count = Mathf.Clamp(PlayerPrefs.GetInt(PrefNormalArtifactCount, 0), 0, 4);
+
+        int[] saved =
+        {
+        PlayerPrefs.GetInt(PrefNormalArtifact0, -1),
+        PlayerPrefs.GetInt(PrefNormalArtifact1, -1),
+        PlayerPrefs.GetInt(PrefNormalArtifact2, -1),
+        PlayerPrefs.GetInt(PrefNormalArtifact3, -1)
+    };
+
+        for (int i = 0; i < count && i < saved.Length; i++)
+        {
+            NormalArtifactDefinition def = FindNormalArtifactBySavedIndex(saved[i]);
+            if (def == null) continue;
+            if (_selectedNormalArtifacts.Contains(def)) continue;
+
+            _selectedNormalArtifacts.Add(def);
+        }
+
+        CopyNormalArtifactList(_selectedNormalArtifacts, _editingNormalArtifacts);
+    }
+
+    private void SaveNormalArtifacts()
+    {
+        PlayerPrefs.SetInt(PrefNormalArtifactCount, _selectedNormalArtifacts.Count);
+        PlayerPrefs.SetInt(PrefNormalArtifact0, GetSavedNormalArtifactIndex(0));
+        PlayerPrefs.SetInt(PrefNormalArtifact1, GetSavedNormalArtifactIndex(1));
+        PlayerPrefs.SetInt(PrefNormalArtifact2, GetSavedNormalArtifactIndex(2));
+        PlayerPrefs.SetInt(PrefNormalArtifact3, GetSavedNormalArtifactIndex(3));
+    }
+
+    private int GetSavedNormalArtifactIndex(int slotIndex)
+    {
+        if (slotIndex < 0 || slotIndex >= _selectedNormalArtifacts.Count)
+            return -1;
+
+        NormalArtifactDefinition def = _selectedNormalArtifacts[slotIndex];
+        return def != null ? _allNormalArtifactOptions.IndexOf(def) : -1;
+    }
+
+    private NormalArtifactDefinition FindNormalArtifactBySavedIndex(int savedIndex)
+    {
+        if (savedIndex < 0 || savedIndex >= _allNormalArtifactOptions.Count)
+            return null;
+
+        return _allNormalArtifactOptions[savedIndex];
+    }
+
+    private void OpenNormalArtifactPopup()
+    {
+        CopyNormalArtifactList(_selectedNormalArtifacts, _editingNormalArtifacts);
+        RefreshNormalArtifactPopupUI();
+
+        if (_normalArtifactPopupRoot != null)
+            _normalArtifactPopupRoot.SetActive(true);
+    }
+
+    private void CloseNormalArtifactPopup()
+    {
+        if (_normalArtifactPopupRoot != null)
+            _normalArtifactPopupRoot.SetActive(false);
+    }
+
+    private void HideNormalArtifactPopup()
+    {
+        if (_normalArtifactPopupRoot != null)
+            _normalArtifactPopupRoot.SetActive(false);
+    }
+
+    private void ToggleNormalArtifactChoice(int optionIndex)
+    {
+        if (optionIndex < 0 || optionIndex >= _allNormalArtifactOptions.Count)
+            return;
+
+        NormalArtifactDefinition def = _allNormalArtifactOptions[optionIndex];
+        if (def == null)
+            return;
+
+        int existingIndex = _editingNormalArtifacts.IndexOf(def);
+
+        if (existingIndex >= 0)
+        {
+            _editingNormalArtifacts.RemoveAt(existingIndex);
+        }
+        else
+        {
+            if (_editingNormalArtifacts.Count >= 4)
+                return;
+
+            _editingNormalArtifacts.Add(def);
+        }
+
+        RefreshNormalArtifactPopupUI();
+    }
+
+    private void ConfirmNormalArtifactSelection()
+    {
+        if (_editingNormalArtifacts.Count <= 0)
+            return;
+
+        CopyNormalArtifactList(_editingNormalArtifacts, _selectedNormalArtifacts);
+        SaveNormalArtifacts();
+        RefreshPreviewUI();
+        CloseNormalArtifactPopup();
+    }
+
+    private void ApplyNormalArtifactsToSession()
+    {
+        NormalArtifactSession.Set(_selectedNormalArtifacts);
+    }
+
+    private void RefreshNormalArtifactPreviewUI()
+    {
+        for (int i = 0; i < _normalArtifactPreviewIcons.Length; i++)
+        {
+            NormalArtifactDefinition def = i < _selectedNormalArtifacts.Count
+                ? _selectedNormalArtifacts[i]
+                : null;
+
+            SetPreviewIcon(_normalArtifactPreviewIcons[i], def != null ? def.icon : null, def != null);
+        }
+    }
+
+    private void RefreshNormalArtifactPopupUI()
+    {
+        for (int i = 0; i < _normalArtifactChoiceButtons.Length; i++)
+        {
+            ChoiceButtonRefs refs = _normalArtifactChoiceButtons[i];
+            NormalArtifactDefinition def = i < _allNormalArtifactOptions.Count
+                ? _allNormalArtifactOptions[i]
+                : null;
+
+            bool selected = def != null && _editingNormalArtifacts.Contains(def);
+
+            RefreshChoiceButtonVisual(
+                refs,
+                def != null ? def.icon : null,
+                GetNormalArtifactDisplayName(def),
+                selected);
+
+            if (refs != null && refs.button != null)
+                refs.button.interactable = def != null && (selected || _editingNormalArtifacts.Count < 4);
+        }
+
+        for (int i = 0; i < _selectedNormalArtifactPreviewIcons.Length; i++)
+        {
+            NormalArtifactDefinition def = i < _editingNormalArtifacts.Count
+                ? _editingNormalArtifacts[i]
+                : null;
+
+            SetPreviewIcon(_selectedNormalArtifactPreviewIcons[i], def != null ? def.icon : null, def != null);
+        }
+
+        if (_confirmNormalArtifactButton != null)
+        {
+            _confirmNormalArtifactButton.interactable = _editingNormalArtifacts.Count > 0;
+
+            Image btnImage = _confirmNormalArtifactButton.GetComponent<Image>();
+            if (btnImage != null)
+                btnImage.color = _editingNormalArtifacts.Count > 0 ? Color.white : new Color(0.6f, 0.6f, 0.6f, 1f);
+        }
+    }
+
+    private static void CopyNormalArtifactList(List<NormalArtifactDefinition> src, List<NormalArtifactDefinition> dst)
+    {
+        dst.Clear();
+
+        for (int i = 0; i < src.Count && i < 4; i++)
+        {
+            NormalArtifactDefinition def = src[i];
+            if (def == null) continue;
+            if (dst.Contains(def)) continue;
+
+            dst.Add(def);
+        }
+    }
+
+    private static string GetNormalArtifactDisplayName(NormalArtifactDefinition def)
+    {
+        if (def == null)
+            return string.Empty;
+
+        return string.IsNullOrWhiteSpace(def.displayName)
+            ? def.name
+            : def.displayName;
+    }
+
+    private static ChoiceButtonRefs CacheChoiceButton(Transform tr)
+    {
+        if (tr == null)
+            return null;
+
+        return new ChoiceButtonRefs
+        {
+            button = tr.GetComponent<Button>(),
+            background = tr.Find("Background")?.GetComponent<Image>(),
+            iconImage = tr.Find("IconImage")?.GetComponent<Image>(),
+            nameText = tr.Find("NameText")?.GetComponent<TMP_Text>(),
+            selectedFrame = tr.Find("SelectedFrame")?.gameObject
+        };
     }
 }
