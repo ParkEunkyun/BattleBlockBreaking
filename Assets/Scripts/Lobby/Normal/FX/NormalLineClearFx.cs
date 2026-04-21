@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -78,6 +79,10 @@ public sealed class NormalLineClearFx : MonoBehaviour
     private const float SparkleDriftCrossMin = 14f;
     private const float SparkleDriftCrossMax = 34f;
 
+    public Action<NormalLineClearFx> OnFinished;
+
+    private bool _isFinishing;
+
     private void Awake()
     {
         _rectTransform = GetComponent<RectTransform>();
@@ -107,6 +112,9 @@ public sealed class NormalLineClearFx : MonoBehaviour
         float fadeOutDuration,
         float thicknessScale)
     {
+        gameObject.SetActive(true);
+        _isFinishing = false;
+
         if (_playRoutine != null)
             StopCoroutine(_playRoutine);
 
@@ -302,8 +310,10 @@ public sealed class NormalLineClearFx : MonoBehaviour
             yield return null;
         }
 
-        _canvasGroup.alpha = 0f;
-        Destroy(gameObject);
+        Finish();
+
+        //_canvasGroup.alpha = 0f;
+        //Destroy(gameObject);
     }
 
     private List<SparkleRuntime> SpawnSparkles(Axis axis, Color baseColor)
@@ -329,7 +339,7 @@ public sealed class NormalLineClearFx : MonoBehaviour
             img.sprite = WhiteSprite;
             img.type = Image.Type.Simple;
 
-            float size = Random.Range(SparkleMinSize, SparkleMaxSize);
+            float size = UnityEngine.Random.Range(SparkleMinSize, SparkleMaxSize);
             rt.sizeDelta = new Vector2(size, size);
 
             Vector2 startPos;
@@ -337,29 +347,29 @@ public sealed class NormalLineClearFx : MonoBehaviour
 
             if (axis == Axis.Row)
             {
-                float startX = Random.Range(-width * 0.46f, width * 0.46f);
-                float startY = Random.Range(-height * 0.15f, height * 0.15f);
+                float startX = UnityEngine.Random.Range(-width * 0.46f, width * 0.46f);
+                float startY = UnityEngine.Random.Range(-height * 0.15f, height * 0.15f);
 
-                float driftX = Random.Range(-SparkleDriftCrossMin, SparkleDriftCrossMax) * (Random.value < 0.5f ? -1f : 1f);
-                float driftY = Random.Range(SparkleDriftMainMin, SparkleDriftMainMax) * (Random.value < 0.5f ? -1f : 1f);
+                float driftX = UnityEngine.Random.Range(-SparkleDriftCrossMin, SparkleDriftCrossMax) * (UnityEngine.Random.value < 0.5f ? -1f : 1f);
+                float driftY = UnityEngine.Random.Range(SparkleDriftMainMin, SparkleDriftMainMax) * (UnityEngine.Random.value < 0.5f ? -1f : 1f);
 
                 startPos = new Vector2(startX, startY);
                 endPos = startPos + new Vector2(driftX, driftY);
             }
             else
             {
-                float startX = Random.Range(-width * 0.15f, width * 0.15f);
-                float startY = Random.Range(-height * 0.46f, height * 0.46f);
+                float startX = UnityEngine.Random.Range(-width * 0.15f, width * 0.15f);
+                float startY = UnityEngine.Random.Range(-height * 0.46f, height * 0.46f);
 
-                float driftX = Random.Range(SparkleDriftMainMin, SparkleDriftMainMax) * (Random.value < 0.5f ? -1f : 1f);
-                float driftY = Random.Range(-SparkleDriftCrossMin, SparkleDriftCrossMax) * (Random.value < 0.5f ? -1f : 1f);
+                float driftX = UnityEngine.Random.Range(SparkleDriftMainMin, SparkleDriftMainMax) * (UnityEngine.Random.value < 0.5f ? -1f : 1f);
+                float driftY = UnityEngine.Random.Range(-SparkleDriftCrossMin, SparkleDriftCrossMax) * (UnityEngine.Random.value < 0.5f ? -1f : 1f);
 
                 startPos = new Vector2(startX, startY);
                 endPos = startPos + new Vector2(driftX, driftY);
             }
 
-            Color sparkleColor = Color.Lerp(baseColor, Color.white, Random.Range(0.70f, 0.95f));
-            sparkleColor.a = Random.Range(0.95f, 1f);
+            Color sparkleColor = Color.Lerp(baseColor, Color.white, UnityEngine.Random.Range(0.70f, 0.95f));
+            sparkleColor.a = UnityEngine.Random.Range(0.95f, 1f);
             img.color = new Color(sparkleColor.r, sparkleColor.g, sparkleColor.b, 0f);
 
             var sparkle = new SparkleRuntime
@@ -368,12 +378,12 @@ public sealed class NormalLineClearFx : MonoBehaviour
                 image = img,
                 startPos = startPos,
                 endPos = endPos,
-                delay = Random.Range(0f, SparkleMaxDelay),
-                duration = Random.Range(SparkleMinDuration, SparkleMaxDuration),
-                startScale = Random.Range(0.65f, 0.95f),
-                endScale = Random.Range(1.15f, 1.7f),
-                startRotation = Random.Range(0f, 360f),
-                rotationSpeed = Random.Range(-280f, 280f),
+                delay = UnityEngine.Random.Range(0f, SparkleMaxDelay),
+                duration = UnityEngine.Random.Range(SparkleMinDuration, SparkleMaxDuration),
+                startScale = UnityEngine.Random.Range(0.65f, 0.95f),
+                endScale = UnityEngine.Random.Range(1.15f, 1.7f),
+                startRotation = UnityEngine.Random.Range(0f, 360f),
+                rotationSpeed = UnityEngine.Random.Range(-280f, 280f),
                 color = sparkleColor
             };
 
@@ -442,5 +452,33 @@ public sealed class NormalLineClearFx : MonoBehaviour
         Color c = sparkle.color;
         c.a = alpha;
         sparkle.image.color = c;
+    }
+    private void OnDisable()
+    {
+        if (_playRoutine != null)
+        {
+            StopCoroutine(_playRoutine);
+            _playRoutine = null;
+        }
+
+        if (_canvasGroup != null)
+            _canvasGroup.alpha = 0f;
+
+        if (_rectTransform != null)
+            _rectTransform.localScale = Vector3.one;
+    }
+    private void Finish()
+    {
+        if (_isFinishing)
+            return;
+
+        _isFinishing = true;
+        _playRoutine = null;
+
+        if (_canvasGroup != null)
+            _canvasGroup.alpha = 0f;
+
+        gameObject.SetActive(false);
+        OnFinished?.Invoke(this);
     }
 }

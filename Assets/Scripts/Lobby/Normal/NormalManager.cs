@@ -25,10 +25,10 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         { (10, 150), (20, 400), (30, 1000) };
 
     // 드랍 아이템 기본 확률
-    private const float BaseDropGold = 0.02f;
-    private const float BaseDropStoneBasic = 0.008f;
-    private const float BaseDropStoneMid = 0.003f;
-    private const float BaseDropStoneHigh = 0.0005f;
+    private const float BaseDropGold = 0.502f;
+    private const float BaseDropStoneBasic = 0.5008f;
+    private const float BaseDropStoneMid = 0.5003f;
+    private const float BaseDropStoneHigh = 0.50005f;
     private const int DropMaxSets = 3;
     private const float DropOccupancyLimit = 0.7f;
 
@@ -42,6 +42,7 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         public DraggableBlockView dragView;
         public Image background;
         public RectTransform previewRoot;
+        public readonly List<Image> previewCells = new List<Image>();
     }
 
     private sealed class ArtifactSlot
@@ -50,9 +51,12 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         public INormalArtifactEffect Effect;
         public int CooldownRemaining;
         public bool IsReady => CooldownRemaining <= 0;
+
         // UI
         public RectTransform Root;
+        public Image FrameImage;
         public Image IconImage;
+        public TMP_Text NameText;
         public TMP_Text CooldownText;
         public Image ReadyGlow;
     }
@@ -102,6 +106,21 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
     [SerializeField] private Color comboFxColorMid = new Color(0.80f, 0.45f, 1f, 1f);
     [SerializeField] private Color comboFxColorHigh = new Color(1f, 0.82f, 0.25f, 1f);
 
+    [Header("FX Pool")]
+    [SerializeField] private int normalLineClearFxPoolSize = 8;
+    [SerializeField] private int normalComboFxPoolSize = 4;
+
+    private readonly Queue<NormalLineClearFx> _normalLineClearFxPool = new Queue<NormalLineClearFx>();
+    private readonly Queue<NormalComboFx> _normalComboFxPool = new Queue<NormalComboFx>();
+
+    [Header("Artifact Slot Frames")]
+    [SerializeField] private Sprite normalArtifactSlotSprite;
+    [SerializeField] private Sprite rareArtifactSlotSprite;
+    [SerializeField] private Sprite epicArtifactSlotSprite;
+    [SerializeField] private Sprite uniqueArtifactSlotSprite;
+    [SerializeField] private Sprite legendArtifactSlotSprite;
+    [SerializeField] private Color artifactDisabledColor = new Color(1f, 1f, 1f, 0.55f);
+
     [Header("UI (자동 탐색)")]
     [SerializeField] private TMP_Text scoreText;
     [SerializeField] private TMP_Text bestScoreText;
@@ -115,6 +134,13 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
     [SerializeField] private Transform resultDropRoot;
     [SerializeField] private Button retryButton;
     [SerializeField] private Button resultLobbyButton;
+    [SerializeField] private Button pauseButton;
+    [SerializeField] private TMP_Text pauseLootCountText;
+    [SerializeField] private RectTransform pausePickupTarget;
+    [SerializeField] private TMP_Text resultTitleText;
+
+    private bool _isPausePopupOpen;
+    private bool _runRewardsClaimed;
 
     // ????????????????????????????????????????????
     //  런타임 - 보드
@@ -139,6 +165,12 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
     private bool _dragHasAnchor;
     private Vector2Int _dragAnchor;
     private RectTransform _dragPreviewRoot;
+
+    private readonly List<Image> _dragPreviewCells = new List<Image>();
+    private bool _dragPreviewInitialized;
+
+    [SerializeField] private int slotPreviewPoolInitialSize = 6;
+    [SerializeField] private int dragPreviewPoolInitialSize = 6;
 
     // ????????????????????????????????????????????
     //  런타임 - 점수 / 콤보
@@ -184,6 +216,8 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         CacheHierarchy();
         BattleBlockCore.BuildShapeLibrary(_normalShapes, _curseShapes, blockSprites);
         BuildMyBoard();
+        WarmupFxPools();
+        WarmupPreviewPools();
         BindButtons();
         InitArtifactSlotUI();
         LoadArtifactsFromSession();
@@ -217,14 +251,19 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         comboText = comboText ?? FindTMP(sa, "TopHudRoot/ComboPanel/ComboText");
         _myBoardRoot = _myBoardRoot ?? FindRect(sa, "BoardRoot/MyBoardRoot");
         resultPhaseRoot = resultPhaseRoot ?? FindGO(sa, "ResultPhaseRoot");
-        resultScoreText = resultScoreText ?? FindTMP(sa, "ResultPhaseRoot/ResultScoreText");
-        resultBestScoreText = resultBestScoreText ?? FindTMP(sa, "ResultPhaseRoot/ResultBestScoreText");
+        resultScoreText = resultScoreText ?? FindTMP(sa, "ResultPhaseRoot/ResultScoreText/Score");
+        resultBestScoreText = resultBestScoreText ?? FindTMP(sa, "ResultPhaseRoot/ResultBestScoreText/Score");
         resultStateBelow = resultStateBelow ?? FindGO(sa, "ResultPhaseRoot/ResultStateBelow");
         resultStateEqual = resultStateEqual ?? FindGO(sa, "ResultPhaseRoot/ResultStateEqual");
         resultStateNew = resultStateNew ?? FindGO(sa, "ResultPhaseRoot/ResultStateNew");
         resultDropRoot = resultDropRoot ?? FindRect(sa, "ResultPhaseRoot/DropItemRoot");
-        retryButton = retryButton ?? FindButton(sa, "ResultPhaseRoot/RetryButton");
-        resultLobbyButton = resultLobbyButton ?? FindButton(sa, "ResultPhaseRoot/ResultLobbyButton");
+        retryButton = retryButton ?? FindButton(sa, "ResultPhaseRoot/Buttons/RetryButton");
+        resultLobbyButton = resultLobbyButton ?? FindButton(sa, "ResultPhaseRoot/Buttons/ResultLobbyButton");
+
+        pauseButton = pauseButton ?? FindButton(sa, "TopHudRoot/PauseButton");
+        pauseLootCountText = pauseLootCountText ?? FindTMP(sa, "TopHudRoot/PauseButton/CountText");
+        pausePickupTarget = pausePickupTarget ?? FindRect(sa, "TopHudRoot/PauseButton/PickupTarget");
+        resultTitleText = resultTitleText ?? FindTMP(sa, "ResultPhaseRoot/ResultTitleText");
 
         for (int i = 0; i < 3; i++)
         {
@@ -278,10 +317,30 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
 
     private void BindButtons()
     {
-        retryButton?.onClick.AddListener(()
-            => SceneManager.LoadScene(SceneManager.GetActiveScene().name));
-        resultLobbyButton?.onClick.AddListener(()
-            => SceneManager.LoadScene(lobbySceneName));
+        pauseButton?.onClick.RemoveAllListeners();
+        pauseButton?.onClick.AddListener(() =>
+        {
+            if (_isGameOver)
+                return;
+
+            OpenPausePopup();
+        });
+
+        retryButton?.onClick.RemoveAllListeners();
+        retryButton?.onClick.AddListener(() =>
+        {
+            if (_isGameOver)
+                return;
+
+            ClosePausePopup();
+        });
+
+        resultLobbyButton?.onClick.RemoveAllListeners();
+        resultLobbyButton?.onClick.AddListener(() =>
+        {
+            ClaimRunRewardsOnce();
+            SceneManager.LoadScene(lobbySceneName);
+        });
     }
 
     private void InitArtifactSlotUI()
@@ -297,15 +356,19 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
             _artifactSlots[i] = new ArtifactSlot
             {
                 Root = slotTr as RectTransform,
+                FrameImage = slotTr.GetComponent<Image>(),
                 IconImage = FindComp<Image>(slotTr, "Icon"),
+                NameText = FindTMP(slotTr, "NameText"),
                 CooldownText = FindTMP(slotTr, "CooldownText"),
                 ReadyGlow = FindComp<Image>(slotTr, "ReadyGlow")
             };
 
             int cap = i;
-            GetOrAdd<Button>(slotTr.gameObject).onClick.AddListener(()
-                => OnClickArtifactSlot(cap));
+            GetOrAdd<Button>(slotTr.gameObject).onClick.RemoveAllListeners();
+            GetOrAdd<Button>(slotTr.gameObject).onClick.AddListener(() => OnClickArtifactSlot(cap));
         }
+
+        RefreshArtifactUI();
     }
 
     // ── 외부에서 아티팩트 주입 (LobbyController가 호출) ──
@@ -313,10 +376,12 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
     {
         var slot = _artifactSlots[slotIndex];
         if (slot == null) return;
+
         slot.Def = def;
-        slot.Effect = NormalArtifactEffectFactory.Create(def);
+        slot.Effect = def != null ? NormalArtifactEffectFactory.Create(def) : null;
         slot.CooldownRemaining = 0;
-        if (slot.IconImage != null) slot.IconImage.sprite = def.icon;
+
+        RefreshArtifactSlotUI(slot);
     }
 
     /// <summary>NormalArtifactSession에서 선택된 아티팩트를 슬롯에 자동 주입</summary>
@@ -355,7 +420,13 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
                 _myBlockSprites[x, y] = null;
             }
 
-        if (resultPhaseRoot != null) resultPhaseRoot.SetActive(false);
+        _isPausePopupOpen = false;
+        _runRewardsClaimed = false;
+
+        if (resultPhaseRoot != null)
+            resultPhaseRoot.SetActive(false);
+
+        RefreshPauseLootCount();
         ResetCurrentBlocks();
         RefreshAllUI();
     }
@@ -664,6 +735,8 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
                         case DropItemType.EnhanceStoneMid: _earnedStoneMid++; break;
                         case DropItemType.EnhanceStoneHigh: _earnedStoneHigh++; break;
                     }
+
+                    RefreshPauseLootCount();
                     _boardDropItems.RemoveAt(i);
                     break;
                 }
@@ -736,23 +809,7 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
 
     private void ShowGameOver()
     {
-        _isGameOver = true;
-        DestroyDragPreview();
-
-        int prev = GetBestScore();
-        int best = SaveBestScore(_myScore);
-        var state = _myScore > prev ? BestScoreState.New
-                  : _myScore == prev ? BestScoreState.Equal
-                  : BestScoreState.Below;
-
-        if (resultPhaseRoot != null) resultPhaseRoot.SetActive(true);
-        if (resultScoreText != null) resultScoreText.text = $"점수 : {_myScore:N0}";
-        if (resultBestScoreText != null) resultBestScoreText.text = $"최고 : {best:N0}";
-        if (resultStateBelow != null) resultStateBelow.SetActive(state == BestScoreState.Below);
-        if (resultStateEqual != null) resultStateEqual.SetActive(state == BestScoreState.Equal);
-        if (resultStateNew != null) resultStateNew.SetActive(state == BestScoreState.New);
-
-        BuildResultDropUI();
+        ShowResultPopup(true);
     }
 
     private void BuildResultDropUI()
@@ -898,7 +955,14 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
                 int x = _dragAnchor.x + c.x, y = _dragAnchor.y + c.y;
                 if (x < 0 || x >= BattleBlockCore.BoardSize) continue;
                 if (y < 0 || y >= BattleBlockCore.BoardSize) continue;
-                _myBoardCells[x, y]?.SetVisual(ghost, null, false, null, false);
+
+                var dragDrop = GetDropAt(x, y);
+                _myBoardCells[x, y]?.SetVisual(
+                    ghost,
+                    null,
+                    false,
+                    dragDrop != null ? GetDropSprite(dragDrop.ItemType) : null,
+                    dragDrop != null);
             }
         }
     }
@@ -909,15 +973,108 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         {
             var refs = _slotRefs[i];
             if (refs == null) continue;
+
             bool has = _currentBlocks[i] != null;
             bool drag = i == _dragSlotIndex;
-            if (refs.dragView != null) refs.dragView.enabled = has && !_isGameOver;
+
+            if (refs.dragView != null)
+                refs.dragView.enabled = has && !_isGameOver;
+
             if (refs.background != null)
                 refs.background.color = drag ? new Color(1f, 0.88f, 0.42f, 1f) : Color.white;
-            RebuildSlotPreview(refs.previewRoot, _currentBlocks[i]);
+
+            UpdateSlotPreview(refs, _currentBlocks[i]);
+        }
+    }
+    private void WarmupPreviewPools()
+    {
+        for (int i = 0; i < _slotRefs.Length; i++)
+        {
+            EnsureSlotPreviewPool(_slotRefs[i], slotPreviewPoolInitialSize);
+            HideUnusedSlotPreviewCells(_slotRefs[i], 0);
+        }
+
+        EnsureDragPreviewRoot();
+        EnsureDragPreviewPool(dragPreviewPoolInitialSize);
+        HideUnusedDragPreviewCells(0);
+    }
+
+    private void EnsureSlotPreviewPool(SlotRefs refs, int requiredCount)
+    {
+        if (refs == null || refs.previewRoot == null)
+            return;
+
+        while (refs.previewCells.Count < requiredCount)
+        {
+            var go = CreatePreviewCellObject(refs.previewRoot);
+            var img = GetOrAdd<Image>(go);
+            img.type = Image.Type.Simple;
+            img.preserveAspect = false;
+            img.raycastTarget = false;
+            go.SetActive(false);
+            refs.previewCells.Add(img);
         }
     }
 
+    private void HideUnusedSlotPreviewCells(SlotRefs refs, int usedCount)
+    {
+        if (refs == null)
+            return;
+
+        for (int i = usedCount; i < refs.previewCells.Count; i++)
+        {
+            if (refs.previewCells[i] != null)
+                refs.previewCells[i].gameObject.SetActive(false);
+        }
+    }
+
+    private void UpdateSlotPreview(SlotRefs refs, BattleBlockInstance block)
+    {
+        if (refs == null || refs.previewRoot == null)
+            return;
+
+        if (block?.cells == null || block.cells.Count == 0)
+        {
+            HideUnusedSlotPreviewCells(refs, 0);
+            return;
+        }
+
+        EnsureSlotPreviewPool(refs, block.cells.Count);
+
+        int mx = 0, my = 0;
+        foreach (var c in block.cells)
+        {
+            if (c.x > mx) mx = c.x;
+            if (c.y > my) my = c.y;
+        }
+
+        float sx = slotPreviewCellSize + slotPreviewSpacing;
+        float sy = slotPreviewCellSize + slotPreviewSpacing;
+        float ox = -(mx * sx) * 0.5f;
+        float oy = (my * sy) * 0.5f;
+
+        for (int i = 0; i < block.cells.Count; i++)
+        {
+            var c = block.cells[i];
+            Image img = refs.previewCells[i];
+            RectTransform rt = img.rectTransform;
+
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(slotPreviewCellSize, slotPreviewCellSize);
+            rt.anchoredPosition = new Vector2(ox + c.x * sx, oy - c.y * sy);
+            rt.localScale = Vector3.one;
+
+            img.color = block.color;
+            img.sprite = block.cellSprite;
+            img.type = Image.Type.Simple;
+            img.preserveAspect = false;
+            img.raycastTarget = false;
+            img.gameObject.SetActive(true);
+        }
+
+        HideUnusedSlotPreviewCells(refs, block.cells.Count);
+    }
+    /*
     private void RebuildSlotPreview(RectTransform root, BattleBlockInstance block)
     {
         if (root == null) return;
@@ -943,18 +1100,39 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
             img.type = Image.Type.Simple; img.preserveAspect = false; img.raycastTarget = false;
         }
     }
-
+    */
     private void RefreshScoreUI()
     {
         if (scoreText != null) scoreText.text = $"점수 : {_myScore:N0}";
         if (bestScoreText != null) bestScoreText.text = $"최고 : {GetBestScore():N0}";
         if (comboText != null) comboText.text = _combo > 0 ? $"콤보 {_combo}" : "";
     }
+    private Sprite GetArtifactSlotFrameSprite(NormalArtifactDefinition def)
+    {
+        if (def == null)
+            return normalArtifactSlotSprite;
+
+        switch (def.grade)
+        {
+            case ArtifactGrade.Normal:
+                return normalArtifactSlotSprite;
+            case ArtifactGrade.Rare:
+                return rareArtifactSlotSprite;
+            case ArtifactGrade.Epic:
+                return epicArtifactSlotSprite;
+            case ArtifactGrade.Unique:
+                return uniqueArtifactSlotSprite;
+            case ArtifactGrade.Legend:
+                return legendArtifactSlotSprite;
+            default:
+                return normalArtifactSlotSprite;
+        }
+    }
 
     private void RefreshArtifactUI()
     {
-        foreach (var slot in _artifactSlots)
-            if (slot != null) RefreshArtifactSlotUI(slot);
+        for (int i = 0; i < _artifactSlots.Length; i++)
+            RefreshArtifactSlotUI(_artifactSlots[i]);
     }
 
     private void RefreshArtifactSlotUI(ArtifactSlot slot)
@@ -964,40 +1142,42 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
 
         bool hasDef = slot.Def != null;
         bool isActive = hasDef && slot.Def.IsActiveArtifact;
-        bool isConsumedGameOnce = slot.CooldownRemaining == int.MaxValue;
+        bool consumedGameOnce = slot.CooldownRemaining == int.MaxValue;
 
-        if (slot.CooldownText != null)
+        if (slot.FrameImage != null)
         {
-            if (!hasDef || !isActive)
-            {
-                slot.CooldownText.text = "";
-            }
-            else if (isConsumedGameOnce)
-            {
-                slot.CooldownText.text = "X";
-            }
-            else if (slot.CooldownRemaining > 0)
-            {
-                slot.CooldownText.text = slot.CooldownRemaining.ToString();
-            }
-            else
-            {
-                slot.CooldownText.text = "";
-            }
-        }
-
-        if (slot.ReadyGlow != null)
-        {
-            slot.ReadyGlow.enabled = hasDef && isActive && slot.IsReady && !isConsumedGameOnce;
+            slot.FrameImage.sprite = GetArtifactSlotFrameSprite(slot.Def);
+            slot.FrameImage.color = Color.white;
+            slot.FrameImage.preserveAspect = false;
         }
 
         if (slot.IconImage != null)
         {
-            slot.IconImage.enabled = hasDef && slot.IconImage.sprite != null;
-            slot.IconImage.color = hasDef
-                ? (slot.IsReady && !isConsumedGameOnce ? Color.white : new Color(1f, 1f, 1f, 0.55f))
-                : new Color(1f, 1f, 1f, 0.25f);
+            slot.IconImage.sprite = hasDef ? slot.Def.icon : null;
+            slot.IconImage.enabled = hasDef && slot.Def.icon != null;
+            slot.IconImage.color = (!hasDef || consumedGameOnce || !slot.IsReady)
+                ? artifactDisabledColor
+                : Color.white;
+            slot.IconImage.preserveAspect = true;
         }
+
+        if (slot.NameText != null)
+            slot.NameText.text = hasDef ? slot.Def.DisplayNameSafe : string.Empty;
+
+        if (slot.CooldownText != null)
+        {
+            if (!hasDef || !isActive)
+                slot.CooldownText.text = string.Empty;
+            else if (consumedGameOnce)
+                slot.CooldownText.text = "X";
+            else if (slot.CooldownRemaining > 0)
+                slot.CooldownText.text = slot.CooldownRemaining.ToString();
+            else
+                slot.CooldownText.text = string.Empty;
+        }
+
+        if (slot.ReadyGlow != null)
+            slot.ReadyGlow.enabled = hasDef && isActive && slot.IsReady && !consumedGameOnce;
     }
 
     // ????????????????????????????????????????????
@@ -1005,32 +1185,16 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
     // ????????????????????????????????????????????
     private void CreateDragPreview(BattleBlockInstance block)
     {
-        DestroyDragPreview();
-        var go = new GameObject(RuntimePrefix + "DragPreview", typeof(RectTransform));
-        _dragPreviewRoot = go.GetComponent<RectTransform>();
-        _dragPreviewRoot.SetParent(_dragLayer, false);
-        _dragPreviewRoot.anchorMin = _dragPreviewRoot.anchorMax = new Vector2(0.5f, 0.5f);
-        _dragPreviewRoot.pivot = new Vector2(0.5f, 0.5f);
-
-        int w = GetBlockWidth(block), h = GetBlockHeight(block);
-        float tw = w * dragPreviewCellSize + (w - 1) * dragPreviewSpacing;
-        float th = h * dragPreviewCellSize + (h - 1) * dragPreviewSpacing;
-        float sx = -tw * 0.5f + dragPreviewCellSize * 0.5f;
-        float sy = th * 0.5f - dragPreviewCellSize * 0.5f;
-
-        foreach (var p in block.cells)
-            CreatePreviewCell(_dragPreviewRoot,
-                new Vector2(dragPreviewCellSize, dragPreviewCellSize),
-                new Vector2(sx + p.x * (dragPreviewCellSize + dragPreviewSpacing),
-                            sy - p.y * (dragPreviewCellSize + dragPreviewSpacing)),
-                new Color(block.color.r, block.color.g, block.color.b, 0.85f),
-                block.cellSprite);
+        UpdateDragPreview(block);
     }
 
     private void DestroyDragPreview()
     {
-        if (_dragPreviewRoot != null) Destroy(_dragPreviewRoot.gameObject);
-        _dragPreviewRoot = null;
+        if (_dragPreviewRoot == null)
+            return;
+
+        _dragPreviewRoot.gameObject.SetActive(false);
+        HideUnusedDragPreviewCells(0);
     }
 
     // ????????????????????????????????????????????
@@ -1072,7 +1236,7 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         DropItemType.EnhanceStoneHigh => stoneHighSprite,
         _ => null
     };
-
+    /*
     private void CreatePreviewCell(RectTransform parent, Vector2 size, Vector2 pos, Color col, Sprite spr)
     {
         var go = new GameObject(RuntimePrefix + "DragCell", typeof(RectTransform), typeof(Image));
@@ -1083,7 +1247,7 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         var img = go.GetComponent<Image>();
         img.color = col; img.sprite = spr; img.raycastTarget = false;
     }
-
+    */
     private GameObject CreateCellObject(Transform parent)
     {
         var go = boardCellPrefab != null
@@ -1181,17 +1345,10 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
 
         foreach (var info in infos)
         {
-            var go = new GameObject(
-                RuntimePrefix + "NormalLineClearFx",
-                typeof(RectTransform),
-                typeof(CanvasGroup),
-                typeof(Image),
-                typeof(NormalLineClearFx));
+            NormalLineClearFx fx = RentLineClearFx();
+            fx.transform.SetParent(_myBoardRoot, false);
+            fx.transform.SetAsLastSibling();
 
-            go.transform.SetParent(_myBoardRoot, false);
-            go.transform.SetAsLastSibling();
-
-            var fx = go.GetComponent<NormalLineClearFx>();
             fx.Play(
                 info.axis,
                 info.index,
@@ -1209,22 +1366,16 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         if (_myBoardRoot == null || combo < 2)
             return;
 
-        GameObject go = new GameObject(
-            RuntimePrefix + "NormalComboFx",
-            typeof(RectTransform),
-            typeof(CanvasGroup),
-            typeof(NormalComboFx));
+        NormalComboFx fx = RentComboFx();
+        fx.transform.SetParent(_myBoardRoot, false);
+        fx.transform.SetAsLastSibling();
 
-        go.transform.SetParent(_myBoardRoot, false);
-        go.transform.SetAsLastSibling();
-
-        RectTransform rt = go.GetComponent<RectTransform>();
+        RectTransform rt = fx.GetComponent<RectTransform>();
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = comboFxOffset;
 
-        NormalComboFx fx = go.GetComponent<NormalComboFx>();
         fx.Play(
             combo,
             comboFxFont,
@@ -1273,5 +1424,270 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
                 AddScore(Mathf.RoundToInt(bonus * mult));
             }
         }
+    }
+
+    private void WarmupFxPools()
+    {
+        if (_myBoardRoot == null)
+            return;
+
+        for (int i = _normalLineClearFxPool.Count; i < normalLineClearFxPoolSize; i++)
+        {
+            NormalLineClearFx fx = CreateLineClearFxInstance();
+            ReturnLineClearFx(fx);
+        }
+
+        for (int i = _normalComboFxPool.Count; i < normalComboFxPoolSize; i++)
+        {
+            NormalComboFx fx = CreateComboFxInstance();
+            ReturnComboFx(fx);
+        }
+    }
+
+    private NormalLineClearFx CreateLineClearFxInstance()
+    {
+        var go = new GameObject(
+            RuntimePrefix + "NormalLineClearFx",
+            typeof(RectTransform),
+            typeof(CanvasGroup),
+            typeof(Image),
+            typeof(NormalLineClearFx));
+
+        go.transform.SetParent(_myBoardRoot, false);
+
+        var fx = go.GetComponent<NormalLineClearFx>();
+        fx.OnFinished = ReturnLineClearFx;
+        return fx;
+    }
+
+    private NormalComboFx CreateComboFxInstance()
+    {
+        var go = new GameObject(
+            RuntimePrefix + "NormalComboFx",
+            typeof(RectTransform),
+            typeof(CanvasGroup),
+            typeof(NormalComboFx));
+
+        go.transform.SetParent(_myBoardRoot, false);
+
+        var fx = go.GetComponent<NormalComboFx>();
+        fx.OnFinished = ReturnComboFx;
+        return fx;
+    }
+
+    private NormalLineClearFx RentLineClearFx()
+    {
+        if (_normalLineClearFxPool.Count > 0)
+            return _normalLineClearFxPool.Dequeue();
+
+        return CreateLineClearFxInstance();
+    }
+
+    private NormalComboFx RentComboFx()
+    {
+        if (_normalComboFxPool.Count > 0)
+            return _normalComboFxPool.Dequeue();
+
+        return CreateComboFxInstance();
+    }
+
+    private void ReturnLineClearFx(NormalLineClearFx fx)
+    {
+        if (fx == null)
+            return;
+
+        fx.transform.SetParent(_myBoardRoot, false);
+        fx.gameObject.SetActive(false);
+        _normalLineClearFxPool.Enqueue(fx);
+    }
+
+    private void ReturnComboFx(NormalComboFx fx)
+    {
+        if (fx == null)
+            return;
+
+        fx.transform.SetParent(_myBoardRoot, false);
+        fx.gameObject.SetActive(false);
+        _normalComboFxPool.Enqueue(fx);
+    }
+    private void EnsureDragPreviewRoot()
+    {
+        if (_dragPreviewInitialized && _dragPreviewRoot != null)
+            return;
+
+        if (_dragPreviewRoot == null)
+        {
+            var go = new GameObject(RuntimePrefix + "DragPreview", typeof(RectTransform));
+            _dragPreviewRoot = go.GetComponent<RectTransform>();
+            _dragPreviewRoot.SetParent(_dragLayer, false);
+            _dragPreviewRoot.anchorMin = _dragPreviewRoot.anchorMax = new Vector2(0.5f, 0.5f);
+            _dragPreviewRoot.pivot = new Vector2(0.5f, 0.5f);
+        }
+
+        _dragPreviewRoot.gameObject.SetActive(false);
+        _dragPreviewInitialized = true;
+    }
+
+    private void EnsureDragPreviewPool(int requiredCount)
+    {
+        EnsureDragPreviewRoot();
+
+        while (_dragPreviewCells.Count < requiredCount)
+        {
+            var go = CreatePreviewCellObject(_dragPreviewRoot);
+            var img = GetOrAdd<Image>(go);
+            img.type = Image.Type.Simple;
+            img.preserveAspect = false;
+            img.raycastTarget = false;
+            go.SetActive(false);
+            _dragPreviewCells.Add(img);
+        }
+    }
+
+    private void HideUnusedDragPreviewCells(int usedCount)
+    {
+        for (int i = usedCount; i < _dragPreviewCells.Count; i++)
+        {
+            if (_dragPreviewCells[i] != null)
+                _dragPreviewCells[i].gameObject.SetActive(false);
+        }
+    }
+
+    private void UpdateDragPreview(BattleBlockInstance block)
+    {
+        EnsureDragPreviewRoot();
+
+        if (block?.cells == null || block.cells.Count == 0)
+        {
+            _dragPreviewRoot.gameObject.SetActive(false);
+            HideUnusedDragPreviewCells(0);
+            return;
+        }
+
+        _dragPreviewRoot.gameObject.SetActive(true);
+        EnsureDragPreviewPool(block.cells.Count);
+
+        int w = GetBlockWidth(block);
+        int h = GetBlockHeight(block);
+
+        float tw = w * dragPreviewCellSize + (w - 1) * dragPreviewSpacing;
+        float th = h * dragPreviewCellSize + (h - 1) * dragPreviewSpacing;
+        float sx = -tw * 0.5f + dragPreviewCellSize * 0.5f;
+        float sy = th * 0.5f - dragPreviewCellSize * 0.5f;
+
+        for (int i = 0; i < block.cells.Count; i++)
+        {
+            var p = block.cells[i];
+            var img = _dragPreviewCells[i];
+            var rt = img.rectTransform;
+
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(dragPreviewCellSize, dragPreviewCellSize);
+            rt.anchoredPosition = new Vector2(
+                sx + p.x * (dragPreviewCellSize + dragPreviewSpacing),
+                sy - p.y * (dragPreviewCellSize + dragPreviewSpacing));
+            rt.localScale = Vector3.one;
+
+            img.color = new Color(block.color.r, block.color.g, block.color.b, 0.85f);
+            img.sprite = block.cellSprite;
+            img.raycastTarget = false;
+            img.gameObject.SetActive(true);
+        }
+
+        HideUnusedDragPreviewCells(block.cells.Count);
+    }
+    private void OpenPausePopup()
+    {
+        _isPausePopupOpen = true;
+        ShowResultPopup(false);
+    }
+
+    private void ClosePausePopup()
+    {
+        _isPausePopupOpen = false;
+
+        if (resultPhaseRoot != null)
+            resultPhaseRoot.SetActive(false);
+    }
+
+    private void ShowResultPopup(bool gameOver)
+    {
+        if (gameOver)
+            _isGameOver = true;
+
+        DestroyDragPreview();
+
+        int prev = GetBestScore();
+        int best = gameOver ? SaveBestScore(_myScore) : Mathf.Max(prev, _myScore);
+
+        var state = _myScore > prev ? BestScoreState.New
+                  : _myScore == prev ? BestScoreState.Equal
+                  : BestScoreState.Below;
+
+        if (resultPhaseRoot != null)
+            resultPhaseRoot.SetActive(true);
+
+        if (resultTitleText != null)
+            resultTitleText.text = gameOver ? "Finish" : "Pause";
+
+        if (resultScoreText != null)
+            resultScoreText.text = $"{_myScore:N0}";
+
+        if (resultBestScoreText != null)
+            resultBestScoreText.text = $"{best:N0}";
+
+        if (resultStateBelow != null)
+            resultStateBelow.SetActive(state == BestScoreState.Below);
+
+        if (resultStateEqual != null)
+            resultStateEqual.SetActive(state == BestScoreState.Equal);
+
+        if (resultStateNew != null)
+            resultStateNew.SetActive(state == BestScoreState.New);
+
+        if (retryButton != null)
+            retryButton.gameObject.SetActive(!gameOver);
+
+        SetButtonLabel(retryButton, "Back");
+        SetButtonLabel(resultLobbyButton, "EXIT");
+
+        BuildResultDropUI();
+        RefreshPauseLootCount();
+    }
+
+    private void ClaimRunRewardsOnce()
+    {
+        if (_runRewardsClaimed)
+            return;
+
+        _runRewardsClaimed = true;
+
+        // TODO:
+        // 실제 재화 저장 연결
+        // EconomyManager.I.AddGold(_earnedGold);
+        // EconomyManager.I.AddStoneBasic(_earnedStoneBasic);
+        // EconomyManager.I.AddStoneMid(_earnedStoneMid);
+        // EconomyManager.I.AddStoneHigh(_earnedStoneHigh);
+
+        Debug.Log($"[NormalManager] 보상 확정 / Gold={_earnedGold}, Basic={_earnedStoneBasic}, Mid={_earnedStoneMid}, High={_earnedStoneHigh}");
+    }
+
+    private void RefreshPauseLootCount()
+    {
+        if (pauseLootCountText == null)
+            return;
+
+        int total = _earnedGold + _earnedStoneBasic + _earnedStoneMid + _earnedStoneHigh;
+        pauseLootCountText.text = total > 0 ? total.ToString() : string.Empty;
+    }
+
+    private void SetButtonLabel(Button btn, string text)
+    {
+        if (btn == null)
+            return;
+
+        TMP_Text tmp = btn.GetComponentInChildren<TMP_Text>(true);
+        if (tmp != null)
+            tmp.text = text;
     }
 }

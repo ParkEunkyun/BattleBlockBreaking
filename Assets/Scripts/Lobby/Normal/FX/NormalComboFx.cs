@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -58,6 +59,10 @@ public sealed class NormalComboFx : MonoBehaviour
 
     private Coroutine _co;
 
+    public Action<NormalComboFx> OnFinished;
+
+    private bool _isFinishing;
+
     private void Awake()
     {
         _root = GetComponent<RectTransform>();
@@ -82,6 +87,9 @@ public sealed class NormalComboFx : MonoBehaviour
         float totalDuration,
         float riseDistance)
     {
+        gameObject.SetActive(true);
+        _isFinishing = false;
+
         if (_co != null)
             StopCoroutine(_co);
 
@@ -231,7 +239,8 @@ public sealed class NormalComboFx : MonoBehaviour
             yield return null;
         }
 
-        Destroy(gameObject);
+        Finish();
+        //Destroy(gameObject);
     }
 
     private List<Spark> BuildSparks(Color baseColor, int combo)
@@ -255,22 +264,22 @@ public sealed class NormalComboFx : MonoBehaviour
             img.sprite = WhiteSprite;
             img.type = Image.Type.Simple;
 
-            float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
-            float startRadius = Random.Range(16f, 36f);
-            float endRadius = Random.Range(58f, 120f);
+            float angle = UnityEngine.Random.Range(0f, 360f) * Mathf.Deg2Rad;
+            float startRadius = UnityEngine.Random.Range(16f, 36f);
+            float endRadius = UnityEngine.Random.Range(58f, 120f);
 
             Vector2 from = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * startRadius;
             Vector2 to = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * endRadius;
 
-            Color c = Color.Lerp(baseColor, Color.white, Random.Range(0.65f, 0.95f));
+            Color c = Color.Lerp(baseColor, Color.white, UnityEngine.Random.Range(0.65f, 0.95f));
             c.a = 0f;
 
-            float sizeFrom = Random.Range(8f, 16f);
-            float sizeTo = Random.Range(14f, 26f);
+            float sizeFrom = UnityEngine.Random.Range(8f, 16f);
+            float sizeTo = UnityEngine.Random.Range(14f, 26f);
 
             rt.sizeDelta = new Vector2(sizeFrom, sizeFrom);
             rt.anchoredPosition = from;
-            rt.localRotation = Quaternion.Euler(0f, 0f, 45f + Random.Range(-25f, 25f));
+            rt.localRotation = Quaternion.Euler(0f, 0f, 45f + UnityEngine.Random.Range(-25f, 25f));
 
             img.color = c;
 
@@ -280,9 +289,9 @@ public sealed class NormalComboFx : MonoBehaviour
                 image = img,
                 from = from,
                 to = to,
-                delay = Random.Range(0f, 0.08f),
-                duration = Random.Range(0.22f, 0.46f),
-                rotationSpeed = Random.Range(-360f, 360f),
+                delay = UnityEngine.Random.Range(0f, 0.08f),
+                duration = UnityEngine.Random.Range(0.22f, 0.46f),
+                rotationSpeed = UnityEngine.Random.Range(-360f, 360f),
                 sizeFrom = sizeFrom,
                 sizeTo = sizeTo,
                 color = c
@@ -359,5 +368,33 @@ public sealed class NormalComboFx : MonoBehaviour
         float c1 = 1.70158f;
         float c3 = c1 + 1f;
         return 1f + c3 * Mathf.Pow(t - 1f, 3f) + c1 * Mathf.Pow(t - 1f, 2f);
+    }
+    private void OnDisable()
+    {
+        if (_co != null)
+        {
+            StopCoroutine(_co);
+            _co = null;
+        }
+
+        if (_group != null)
+            _group.alpha = 0f;
+
+        if (_root != null)
+            _root.localScale = Vector3.one;
+    }
+    private void Finish()
+    {
+        if (_isFinishing)
+            return;
+
+        _isFinishing = true;
+        _co = null;
+
+        if (_group != null)
+            _group.alpha = 0f;
+
+        gameObject.SetActive(false);
+        OnFinished?.Invoke(this);
     }
 }
