@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea23bd5ba43d3914db2bd64cd1f74081, type: 3}
+  m_Name: Artifact_low_space_clear_01
+  m_EditorClassIdentifier: 
+  artifactId: artifact_low_space_clear_01
+  displayName: "\uC555\uBC15 \uB300\uC751 \uB9E4\uB274\uC5BC"
+  description: "\uBCF4\uB4DC \uBE48\uCE78\uC774 \uC801\uC744 \uB54C \uC904 \uD074\uB9AC\uC5B4
+    \uC810\uC218\uAC00 \uD06C\uAC8C \uC99D\uAC00\uD55C\uB2E4.\r"
+  grade: 1
+  icon: {fileID: 153685874, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
+  artifactType: 1
+  equipEffectType: 101
+  ownedEffectType: 2
+  runtimeTriggerType: 3
+  cooldownType: 0
+  activeUsableOncePerRound: 0
+  applyToAllRemainingBlocks: 1
+  autoTriggerOnGameOver: 0
+  equipValues:
+  - 20
+  - 24
+  - 28
+  - 32
+  - 36
+  - 40
+  - 45
+  - 50
+  - 55
+  - 60
+  ownedValues:
+  - 2.8
+  - 3.3
+  - 3.8
+  - 4.4
+  - 5.1
+  - 5.9
+  - 6.8
+  - 7.8
+  - 8.9
+  - 10
+  cooldownValues: 00000000000000000000000000000000000000000000000000000000000000000000000000000000
+  duplicateShardReward: 30
+  shardSellGold: 80
+  collectionPoint: 15
+  ownedEffectDescription: "\uBCF4\uC720 \uD6A8\uACFC: \uC904 \uD074\uB9AC\uC5B4 \uC810\uC218
+    \uC99D\uAC00"
+  paramA: 10
+  paramB: 0
+  paramFloat: 0

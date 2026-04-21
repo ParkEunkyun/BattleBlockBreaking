@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea23bd5ba43d3914db2bd64cd1f74081, type: 3}
+  m_Name: artifact_gravity_collapse_legend
+  m_EditorClassIdentifier: 
+  artifactId: 'artifact_gravity_collapse_legend '
+  displayName: "\uC911\uB825 \uBD95\uAD34"
+  description: "\uBCF4\uB4DC \uC704 \uBE14\uB85D\uC744 \uBAA8\uB450 \uC544\uB798\uB85C
+    \uB099\uD558\uC2DC\uCF1C \uBE48\uCE78\uC744 \uBA54\uC6B0\uACE0, \uC644\uC131\uB41C
+    \uC904\uC744 \uC989\uC2DC \uD074\uB9AC\uC5B4\uD55C\uB2E4."
+  grade: 4
+  icon: {fileID: 1501307304, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
+  artifactType: 4
+  equipEffectType: 303
+  ownedEffectType: 2
+  runtimeTriggerType: 10
+  cooldownType: 2
+  activeUsableOncePerRound: 1
+  applyToAllRemainingBlocks: 0
+  autoTriggerOnGameOver: 0
+  equipValues:
+  - 20
+  - 25
+  - 30
+  - 35
+  - 40
+  - 45
+  - 50
+  - 55
+  - 60
+  - 70
+  ownedValues:
+  - 7
+  - 8.1
+  - 9.3
+  - 10.6
+  - 12
+  - 13.5
+  - 15
+  - 16.8
+  - 18.6
+  - 21
+  cooldownValues: 0c0000000c0000000b0000000b0000000a0000000a00000009000000080000000700000006000000
+  duplicateShardReward: 120
+  shardSellGold: 5500
+  collectionPoint: 60
+  ownedEffectDescription: "\uBCF4\uC720 \uD6A8\uACFC: \uC904 \uD074\uB9AC\uC5B4 \uC810\uC218
+    \uC99D\uAC00\r"
+  paramA: 0
+  paramB: 0
+  paramFloat: 0

@@ -1,27 +1,57 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(RectTransform))]
 public class SafeArea : MonoBehaviour
 {
-    void Start()
+    private RectTransform _rectTransform;
+    private Rect _lastSafeArea = new Rect(0, 0, 0, 0);
+    private Vector2Int _lastScreenSize = Vector2Int.zero;
+    private ScreenOrientation _lastOrientation = ScreenOrientation.AutoRotation;
+
+    private void Awake()
     {
-        RectTransform rt = GetComponent<RectTransform>();
-        Rect safe = Screen.safeArea;
+        _rectTransform = GetComponent<RectTransform>();
+        ApplySafeArea();
+    }
 
-        // safeArea에서 아래쪽(Height) 조정하지 않음
-        Vector2 anchorMin = safe.position;
-        Vector2 anchorMax = safe.position + safe.size;
+    private void OnEnable()
+    {
+        ApplySafeArea();
+    }
 
-        // 아래쪽은 고정 (0)
-        anchorMin.y = 0;
+    private void Update()
+    {
+        if (_lastSafeArea != Screen.safeArea ||
+            _lastScreenSize.x != Screen.width ||
+            _lastScreenSize.y != Screen.height ||
+            _lastOrientation != Screen.orientation)
+        {
+            ApplySafeArea();
+        }
+    }
+
+    private void ApplySafeArea()
+    {
+        if (_rectTransform == null)
+            _rectTransform = GetComponent<RectTransform>();
+
+        Rect safeArea = Screen.safeArea;
+
+        Vector2 anchorMin = safeArea.position;
+        Vector2 anchorMax = safeArea.position + safeArea.size;
 
         anchorMin.x /= Screen.width;
+        anchorMin.y /= Screen.height;
         anchorMax.x /= Screen.width;
         anchorMax.y /= Screen.height;
 
-        rt.anchorMin = anchorMin;
-        rt.anchorMax = anchorMax;
+        _rectTransform.anchorMin = anchorMin;
+        _rectTransform.anchorMax = anchorMax;
+        _rectTransform.offsetMin = Vector2.zero;
+        _rectTransform.offsetMax = Vector2.zero;
+
+        _lastSafeArea = safeArea;
+        _lastScreenSize = new Vector2Int(Screen.width, Screen.height);
+        _lastOrientation = Screen.orientation;
     }
 }

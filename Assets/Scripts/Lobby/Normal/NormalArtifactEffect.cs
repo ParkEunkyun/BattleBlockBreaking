@@ -2,31 +2,32 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 아티팩트 효과가 NormalManager의 상태를 읽고 조작할 때 사용하는 컨텍스트.
-/// NormalManager가 생성하여 각 효과에 전달합니다.
+/// 신규 아티팩트 시스템으로 넘어가기 위한 최소 호환 레이어.
+/// 기존 레거시 로직은 제거하고, NormalManager가 컴파일되도록 인터페이스만 유지한다.
+/// 실제 발동/쿨다운/보유효과는 NormalArtifactRuntimeManager 쪽으로 이관 예정.
 /// </summary>
 public class NormalArtifactContext
 {
-    // ── 읽기 전용 상태 ──────────────────────────
     public int CurrentScore { get; private set; }
     public int CurrentCombo { get; private set; }
     public int CurrentSetIndex { get; private set; }
     public bool[,] Occupied { get; private set; }
     public IReadOnlyList<BattleBlockInstance> CurrentBlocks { get; private set; }
 
-    // ── NormalManager 조작 콜백 ─────────────────
-    public System.Action<int> AddScore;        // 점수 추가
-    public System.Action RerollAllBlocks; // 블록 3개 전부 교체
-    public System.Action<int> RerollOneBlock;  // 특정 슬롯 교체
-    public System.Action<int> AddComboCount;   // 콤보 카운터 강제 증가
-    public System.Action<float> SetScoreMultiplierForSets; // N세트간 점수 배율 설정 (배율, 세트수)
-    public System.Action<int, int> ClearArea;    // (x,y) 중심 주변 클리어 → EmergencyClear
-    public System.Action<float> ClearBoardRatio; // 비율 클리어 → SecondChance, EmergencyClear
-    public System.Action SpawnDropItem;   // 드랍 아이템 1개 즉시 스폰
-    public System.Func<bool> TryConsumeRerollToken; // 리롤 토큰 소모 시도
+    public System.Action<int> AddScore;
+    public System.Action RerollAllBlocks;
+    public System.Action<int> RerollOneBlock;
+    public System.Action<int> AddComboCount;
+    public System.Action<float> SetScoreMultiplierForSets;
+    public System.Action<int, int> ClearArea;
+    public System.Action<float> ClearBoardRatio;
+    public System.Action SpawnDropItem;
+    public System.Func<bool> TryConsumeRerollToken;
 
     public void Init(
-        int score, int combo, int setIndex,
+        int score,
+        int combo,
+        int setIndex,
         bool[,] occupied,
         IReadOnlyList<BattleBlockInstance> blocks)
     {
@@ -38,44 +39,24 @@ public class NormalArtifactContext
     }
 }
 
-/// <summary>
-/// 모든 아티팩트 효과가 구현해야 하는 인터페이스.
-/// NormalManager는 이 인터페이스를 통해 아티팩트를 호출합니다.
-/// </summary>
 public interface INormalArtifactEffect
 {
-    // ── 패시브 훅 ────────────────────────────────
-    /// <summary>블록 배치 후 호출. placedCellCount = 배치된 셀 수</summary>
     void OnBlockPlaced(NormalArtifactContext ctx, int placedCellCount);
-
-    /// <summary>라인 클리어 후 호출. clearedLineCount = 이번 배치에서 제거된 줄 수</summary>
     void OnLineClear(NormalArtifactContext ctx, int clearedLineCount);
-
-    /// <summary>세트 종료 시 호출 (블록 3개 전부 소진). hadClearThisSet = 이 세트에 클리어 여부</summary>
     void OnSetEnd(NormalArtifactContext ctx, bool hadClearThisSet);
-
-    /// <summary>
-    /// 게임오버 판정 직전 호출.
-    /// true 반환 시 게임오버 취소(부활). SecondChance 전용.
-    /// </summary>
     bool OnGameOverCheck(NormalArtifactContext ctx);
-
-    // ── 액티브 ───────────────────────────────────
-    /// <summary>자동/수동 발동 가능한지 확인</summary>
     bool CanActivate(NormalArtifactContext ctx);
-
-    /// <summary>발동 실행. 쿨다운 처리는 NormalManager가 담당.</summary>
     void Activate(NormalArtifactContext ctx);
 }
-
-// ????????????????????????????????????????????????????????????
-//  기반 클래스
-// ????????????????????????????????????????????????????????????
 
 public abstract class NormalArtifactEffectBase : INormalArtifactEffect
 {
     protected readonly NormalArtifactDefinition Def;
-    protected NormalArtifactEffectBase(NormalArtifactDefinition def) { Def = def; }
+
+    protected NormalArtifactEffectBase(NormalArtifactDefinition def)
+    {
+        Def = def;
+    }
 
     public virtual void OnBlockPlaced(NormalArtifactContext ctx, int placedCellCount) { }
     public virtual void OnLineClear(NormalArtifactContext ctx, int clearedLineCount) { }
@@ -85,446 +66,57 @@ public abstract class NormalArtifactEffectBase : INormalArtifactEffect
     public virtual void Activate(NormalArtifactContext ctx) { }
 }
 
-// ????????????????????????????????????????????????????????????
-//  1. ScoreBoost
-// ????????????????????????????????????????????????????????????
-
-public sealed class ScoreBoostEffect : NormalArtifactEffectBase
+/// <summary>
+/// 기본 no-op 효과.
+/// </summary>
+public sealed class NullArtifactEffect : NormalArtifactEffectBase
 {
-    private int _activeRemainingSets;  // 배율 효과 남은 세트 수
-    private int _setsUntilAutoTrigger; // 다음 자동 발동까지 남은 세트
-
-    public bool IsScoreMultiplierActive => _activeRemainingSets > 0;
-    public float ActiveMultiplier => Def.activeScoreMultiplier;
-    public int ActiveBonusPerClear => Def.activeBonusScorePerClear;
-
-    public ScoreBoostEffect(NormalArtifactDefinition def) : base(def)
-    {
-        _setsUntilAutoTrigger = def.autoTriggerIntervalSets;
-    }
-
-    public override void OnBlockPlaced(NormalArtifactContext ctx, int placedCellCount)
-    {
-        // 패시브: 셀당 추가 점수
-        if (Def.bonusScorePerCell > 0)
-            ctx.AddScore?.Invoke(placedCellCount * Def.bonusScorePerCell);
-    }
-
-    public override void OnLineClear(NormalArtifactContext ctx, int clearedLineCount)
-    {
-        // 배율 활성 중 클리어마다 추가 점수
-        if (_activeRemainingSets > 0 && Def.activeBonusScorePerClear > 0)
-            ctx.AddScore?.Invoke(Def.activeBonusScorePerClear * clearedLineCount);
-    }
-
-    public override void OnSetEnd(NormalArtifactContext ctx, bool hadClearThisSet)
-    {
-        // 배율 지속 카운트다운
-        if (_activeRemainingSets > 0)
-            _activeRemainingSets--;
-
-        // 자동 발동 카운트다운
-        if (Def.triggerType == ArtifactTriggerType.AutoActive)
-        {
-            _setsUntilAutoTrigger--;
-            if (_setsUntilAutoTrigger <= 0 && CanActivate(ctx))
-            {
-                Activate(ctx);
-                _setsUntilAutoTrigger = Def.autoTriggerIntervalSets;
-            }
-        }
-    }
+    public NullArtifactEffect(NormalArtifactDefinition def) : base(def) { }
 
     public override bool CanActivate(NormalArtifactContext ctx)
-        => Def.triggerType != ArtifactTriggerType.PassiveOnly && _activeRemainingSets <= 0;
-
-    public override void Activate(NormalArtifactContext ctx)
     {
-        _activeRemainingSets = Def.activeScoreMultiplierDuration;
-        ctx.SetScoreMultiplierForSets?.Invoke(Def.activeScoreMultiplier);
-    }
+        if (Def == null)
+            return false;
 
-    /// <summary>NormalManager가 클리어 보너스 계산 시 이 배율을 곱해야 합니다.</summary>
-    public float GetLineClearBonusMultiplier()
-        => 1f + Def.lineClearBonusMultiplier;
+        return Def.IsActiveArtifact;
+    }
 }
 
-// ????????????????????????????????????????????????????????????
-//  2. ComboBoost
-// ????????????????????????????????????????????????????????????
+/// <summary>
+/// 기존 NormalManager 타입 체크 호환용 껍데기.
+/// 이제 실효과는 하지 않음.
+/// </summary>
+public sealed class ScoreBoostEffect : NormalArtifactEffectBase
+{
+    public ScoreBoostEffect(NormalArtifactDefinition def) : base(def) { }
+    public float GetLineClearBonusMultiplier() => 1f;
+}
 
 public sealed class ComboBoostEffect : NormalArtifactEffectBase
 {
-    private int _exemptRemaining;        // 남은 실패 면제 횟수 (라운드당 리셋)
-    private int _comboFixRemainingSets;  // 전설: 배율 고정 남은 세트
-
-    public bool IsComboFixed => _comboFixRemainingSets > 0;
-
-    public ComboBoostEffect(NormalArtifactDefinition def) : base(def)
-    {
-        _exemptRemaining = def.comboFailExemptCount;
-    }
-
-    public override void OnLineClear(NormalArtifactContext ctx, int clearedLineCount)
-    {
-        // 패시브: 콤보당 추가 점수는 NormalManager의 콤보 계산 후 AddScore로 처리
-        // 여기서는 콤보 고정 중일 때 추가 보너스
-        if (_comboFixRemainingSets > 0 && Def.activeBonusScorePerClear > 0)
-            ctx.AddScore?.Invoke(Def.activeBonusScorePerClear);
-    }
-
-    public override void OnSetEnd(NormalArtifactContext ctx, bool hadClearThisSet)
-    {
-        // 면제 횟수 매 세트 리셋
-        _exemptRemaining = Def.comboFailExemptCount;
-
-        if (_comboFixRemainingSets > 0)
-            _comboFixRemainingSets--;
-
-        // 자동 발동 체크 (3연속 클리어 = ComboBoost는 NormalManager에서 판단 후 Activate 직접 호출)
-    }
-
-    /// <summary>NormalManager가 콤보 리셋 직전 호출. true면 리셋 취소(면제 소모)</summary>
-    public bool TryExemptComboReset()
-    {
-        if (_exemptRemaining <= 0) return false;
-        _exemptRemaining--;
-        return true;
-    }
-
-    public override bool CanActivate(NormalArtifactContext ctx)
-        => Def.triggerType != ArtifactTriggerType.PassiveOnly;
-
-    public override void Activate(NormalArtifactContext ctx)
-    {
-        // 카운터 즉시 증가
-        if (Def.activeComboCounterBonus > 0)
-            ctx.AddComboCount?.Invoke(Def.activeComboCounterBonus);
-
-        // 콤보×점수 즉시 획득
-        if (Def.activeComboInstantScore > 0)
-            ctx.AddScore?.Invoke(ctx.CurrentCombo * Def.activeComboInstantScore);
-
-        // 전설: 배율 고정
-        if (Def.activeComboFixDuration > 0)
-            _comboFixRemainingSets = Def.activeComboFixDuration;
-    }
-
-    /// <summary>콤보 보너스 점수 계산 (NormalManager에서 콤보 +1마다 호출)</summary>
-    public int GetBonusScorePerCombo() => Def.bonusScorePerCombo;
-
-    /// <summary>마일스톤 보너스 배율 (NormalManager의 마일스톤 보너스에 곱함)</summary>
-    public float GetMilestoneBonusMultiplier() => 1f + Def.milestoneBonusMultiplier;
+    public ComboBoostEffect(NormalArtifactDefinition def) : base(def) { }
+    public bool TryExemptComboReset() => false;
+    public int GetBonusScorePerCombo() => 0;
+    public float GetMilestoneBonusMultiplier() => 1f;
 }
-
-// ????????????????????????????????????????????????????????????
-//  3. ShapeReroll
-// ????????????????????????????????????????????????????????????
-
-public sealed class ShapeRerollEffect : NormalArtifactEffectBase
-{
-    private int _tokenCount;
-    private int _setsUntilRecharge;
-
-    public int TokenCount => _tokenCount;
-
-    public ShapeRerollEffect(NormalArtifactDefinition def) : base(def)
-    {
-        _tokenCount = def.startTokenCount;
-        _setsUntilRecharge = def.tokenRechargeIntervalSets > 0
-            ? def.tokenRechargeIntervalSets : int.MaxValue;
-    }
-
-    public override void OnSetEnd(NormalArtifactContext ctx, bool hadClearThisSet)
-    {
-        // 자동 충전
-        if (Def.tokenRechargeIntervalSets > 0)
-        {
-            _setsUntilRecharge--;
-            if (_setsUntilRecharge <= 0)
-            {
-                _tokenCount++;
-                _setsUntilRecharge = Def.tokenRechargeIntervalSets;
-            }
-        }
-    }
-
-    public override bool CanActivate(NormalArtifactContext ctx)
-    {
-        if (Def.triggerType == ArtifactTriggerType.PassiveOnly)
-            return _tokenCount > 0; // 노말/레어는 토큰 소모 방식
-        return _tokenCount > 0; // 에픽+도 토큰 필요
-    }
-
-    public override void Activate(NormalArtifactContext ctx)
-    {
-        if (_tokenCount <= 0) return;
-        _tokenCount--;
-
-        if (Def.activeRerollFreeChoice)
-        {
-            // 전설: NormalManager에서 UI 띄워 직접 선택하도록 이벤트만 트리거
-            // (NormalManager가 이 플래그를 보고 처리)
-        }
-        else if (Def.activeRerollAll || Def.triggerType == ArtifactTriggerType.PassiveOnly)
-        {
-            ctx.RerollAllBlocks?.Invoke();
-        }
-        // activeRerollSelective(유니크)는 NormalManager UI에서 처리
-    }
-}
-
-// ????????????????????????????????????????????????????????????
-//  4. EmergencyClear
-// ????????????????????????????????????????????????????????????
-
-public sealed class EmergencyClearEffect : NormalArtifactEffectBase
-{
-    private int _chargeCount;
-    private int _setsUntilRecharge;
-
-    public int ChargeCount => _chargeCount;
-
-    public EmergencyClearEffect(NormalArtifactDefinition def) : base(def)
-    {
-        _chargeCount = def.startChargeCount;
-        _setsUntilRecharge = def.chargeRechargeIntervalSets > 0
-            ? def.chargeRechargeIntervalSets : int.MaxValue;
-    }
-
-    public override void OnSetEnd(NormalArtifactContext ctx, bool hadClearThisSet)
-    {
-        if (Def.chargeRechargeIntervalSets > 0)
-        {
-            _setsUntilRecharge--;
-            if (_setsUntilRecharge <= 0)
-            {
-                _chargeCount++;
-                _setsUntilRecharge = Def.chargeRechargeIntervalSets;
-            }
-        }
-    }
-
-    public override bool CanActivate(NormalArtifactContext ctx) => _chargeCount > 0;
-
-    public override void Activate(NormalArtifactContext ctx)
-    {
-        if (_chargeCount <= 0) return;
-        _chargeCount--;
-
-        if (Def.activeClearBoardRatio > 0f)
-        {
-            // 전설: 보드 비율 클리어
-            ctx.ClearBoardRatio?.Invoke(Def.activeClearBoardRatio);
-        }
-        else if (Def.activeClearAreaSize > 0)
-        {
-            // 에픽/유니크: 영역 클리어 → NormalManager가 영역 선택 UI 처리 후 ClearArea 호출
-        }
-        // 클리어 셀당 보너스는 NormalManager에서 제거된 셀 수를 세어 처리
-    }
-
-    public int GetBonusScorePerClearedCell() => Def.activeClearBonusScorePerCell;
-}
-
-// ????????????????????????????????????????????????????????????
-//  5. SecondChance
-// ????????????????????????????????????????????????????????????
-
-public sealed class SecondChanceEffect : NormalArtifactEffectBase
-{
-    private int _reviveRemaining;
-
-    public int ReviveRemaining => _reviveRemaining;
-
-    public SecondChanceEffect(NormalArtifactDefinition def) : base(def)
-    {
-        _reviveRemaining = def.reviveCount;
-    }
-
-    public override bool OnGameOverCheck(NormalArtifactContext ctx)
-    {
-        if (_reviveRemaining <= 0) return false;
-
-        _reviveRemaining--;
-
-        // 에픽: 선제 클리어 후 부활
-        if (Def.activePreReviveClearRatio > 0f)
-            ctx.ClearBoardRatio?.Invoke(Def.activePreReviveClearRatio);
-
-        // 일반 부활 클리어
-        ctx.ClearBoardRatio?.Invoke(Def.boardClearRatio);
-
-        // 부활 점수 보너스
-        if (Def.reviveBonusScoreRatio > 0f)
-            ctx.AddScore?.Invoke(Mathf.RoundToInt(ctx.CurrentScore * Def.reviveBonusScoreRatio));
-
-        return true; // 게임오버 취소
-    }
-
-    // SecondChance는 OnGameOverCheck에서 자동 처리, 별도 CanActivate/Activate 없음
-    public override bool CanActivate(NormalArtifactContext ctx) => false;
-}
-
-// ????????????????????????????????????????????????????????????
-//  6. LuckyBonus
-// ????????????????????????????????????????????????????????????
 
 public sealed class LuckyBonusEffect : NormalArtifactEffectBase
 {
-    private int _noLuckyStreak;            // 연속 클리어 실패 세트 수
-    private int _luckyStack;               // 전설: 럭키 스택
-    private bool _nextClearLuckyGuaranteed; // 에픽: 다음 클리어 럭키 확정
-    private int _luckyBoostRemainingSets;  // 유니크: 확률 2배 지속
-    private bool _luckyStackFixed;          // 전설: 스택 고정 중
-    private int _luckyStackFixRemaining;
-
     public LuckyBonusEffect(NormalArtifactDefinition def) : base(def) { }
-
-    public override void OnLineClear(NormalArtifactContext ctx, int clearedLineCount)
-    {
-        _noLuckyStreak = 0; // 클리어 성공 시 실패 스트릭 리셋
-
-        float chance = GetCurrentLuckyChanceX2();
-        float roll = Random.value;
-
-        float multiplier = 1f;
-        bool isLucky = false;
-
-        // 확정 체크
-        if (_nextClearLuckyGuaranteed)
-        {
-            multiplier = 2f;
-            isLucky = true;
-            _nextClearLuckyGuaranteed = false;
-        }
-        else if (roll < GetCurrentLuckyChanceX3())
-        {
-            multiplier = 3f + (_luckyStack * 0.5f); // 전설 스택 반영
-            isLucky = true;
-        }
-        else if (roll < chance)
-        {
-            multiplier = 2f + (_luckyStack * 0.3f);
-            isLucky = true;
-        }
-
-        if (isLucky)
-        {
-            // 이미 계산된 클리어 점수에 추가분 지급
-            // NormalManager가 기본 클리어 점수를 먼저 계산했다고 가정,
-            // 여기서는 (multiplier-1)배 추가를 보너스로 지급
-            // 실제 점수 계산은 NormalManager가 OnLineClear 결과를 받아 처리
-
-            if (!_luckyStackFixed && Def.grade == ArtifactGrade.Legend)
-                _luckyStack = Mathf.Min(_luckyStack + 1, 5);
-        }
-    }
-
-    public override void OnSetEnd(NormalArtifactContext ctx, bool hadClearThisSet)
-    {
-        if (!hadClearThisSet)
-            _noLuckyStreak++;
-
-        if (_luckyBoostRemainingSets > 0)
-            _luckyBoostRemainingSets--;
-
-        if (_luckyStackFixRemaining > 0)
-        {
-            _luckyStackFixRemaining--;
-            if (_luckyStackFixRemaining <= 0)
-                _luckyStackFixed = false;
-        }
-
-        // 자동 발동 체크
-        if (Def.triggerType == ArtifactTriggerType.AutoActive &&
-            _noLuckyStreak >= Def.autoTriggerNoLuckyStreak &&
-            CanActivate(ctx))
-        {
-            Activate(ctx);
-            _noLuckyStreak = 0;
-        }
-    }
-
-    public override bool CanActivate(NormalArtifactContext ctx)
-        => Def.triggerType != ArtifactTriggerType.PassiveOnly;
-
-    public override void Activate(NormalArtifactContext ctx)
-    {
-        if (Def.activeLuckyGuarantee)
-            _nextClearLuckyGuaranteed = true;
-
-        if (Def.activeLuckyBoostDuration > 0)
-            _luckyBoostRemainingSets = Def.activeLuckyBoostDuration;
-
-        if (Def.activeLuckyStackMax && Def.grade == ArtifactGrade.Legend)
-        {
-            _luckyStack = 5;
-            _luckyStackFixed = true;
-            _luckyStackFixRemaining = Def.activeLuckyStackMaxDuration;
-        }
-
-        if (Def.activeDropSpawnCount > 0)
-        {
-            for (int i = 0; i < Def.activeDropSpawnCount; i++)
-                ctx.SpawnDropItem?.Invoke();
-        }
-    }
-
-    public float GetCurrentLuckyChanceX2()
-    {
-        float base2 = Def.luckyChanceX2;
-        if (_luckyBoostRemainingSets > 0) base2 *= 2f;
-        base2 += _luckyStack * 0.05f; // 스택당 +5%
-        return Mathf.Clamp01(base2);
-    }
-
-    public float GetCurrentLuckyChanceX3()
-    {
-        float base3 = Def.luckyChanceX3;
-        if (_luckyBoostRemainingSets > 0) base3 *= 2f;
-        return Mathf.Clamp01(base3);
-    }
-
-    public float GetDropRateMultiplier() => Def.dropRateMultiplier;
-    public int GetDropItemKeepBonus() => Def.dropItemKeepExtraSets;
-
-    /// <summary>럭키 배율 계산 (NormalManager에서 클리어 점수 계산 시 호출)</summary>
-    public float RollLuckyMultiplier()
-    {
-        if (_nextClearLuckyGuaranteed)
-        {
-            _nextClearLuckyGuaranteed = false;
-            return 2f + _luckyStack * 0.3f;
-        }
-
-        float roll = Random.value;
-        if (roll < GetCurrentLuckyChanceX3())
-            return 3f + _luckyStack * 0.5f;
-        if (roll < GetCurrentLuckyChanceX2())
-            return 2f + _luckyStack * 0.3f;
-
-        return 1f;
-    }
+    public float RollLuckyMultiplier() => 1f;
+    public float GetDropRateMultiplier() => 1f;
+    public int GetDropItemKeepBonus() => 0;
 }
-
-// ????????????????????????????????????????????????????????????
-//  팩토리 - Definition으로부터 효과 인스턴스 생성
-// ????????????????????????????????????????????????????????????
 
 public static class NormalArtifactEffectFactory
 {
     public static INormalArtifactEffect Create(NormalArtifactDefinition def)
     {
-        return def.category switch
-        {
-            ArtifactCategory.ScoreBoost => new ScoreBoostEffect(def),
-            ArtifactCategory.ComboBoost => new ComboBoostEffect(def),
-            ArtifactCategory.ShapeReroll => new ShapeRerollEffect(def),
-            ArtifactCategory.EmergencyClear => new EmergencyClearEffect(def),
-            ArtifactCategory.SecondChance => new SecondChanceEffect(def),
-            ArtifactCategory.LuckyBonus => new LuckyBonusEffect(def),
-            _ => null
-        };
+        if (def == null)
+            return null;
+
+        // 1차 정리 단계에서는 전부 no-op.
+        // 이후 NormalArtifactRuntimeManager 연동 시 완전 제거 예정.
+        return new NullArtifactEffect(def);
     }
 }

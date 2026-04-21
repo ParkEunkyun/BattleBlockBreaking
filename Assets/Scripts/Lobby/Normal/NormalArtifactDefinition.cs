@@ -1,17 +1,5 @@
 using UnityEngine;
 
-/// <summary>아티팩트 카테고리 (6종)</summary>
-public enum ArtifactCategory
-{
-    ScoreBoost,
-    ComboBoost,
-    ShapeReroll,
-    EmergencyClear,
-    SecondChance,
-    LuckyBonus
-}
-
-/// <summary>아티팩트 등급</summary>
 public enum ArtifactGrade
 {
     Normal = 0,
@@ -21,101 +9,293 @@ public enum ArtifactGrade
     Legend = 4
 }
 
-/// <summary>
-/// 발동 방식.
-/// PassiveOnly  : 패시브만 (노말/레어)
-/// AutoActive   : 조건 충족 시 자동 발동 (ScoreBoost, ComboBoost, SecondChance, LuckyBonus)
-/// ManualActive : 슬롯 탭으로 수동 발동 (ShapeReroll, EmergencyClear)
-/// </summary>
-public enum ArtifactTriggerType
+public enum NormalArtifactType
 {
-    PassiveOnly,
-    AutoActive,
-    ManualActive
+    Passive = 0,
+    ConditionalPassive = 1,
+    Active = 2,
+    LegendaryPassive = 3,
+    LegendaryActive = 4
 }
 
-/// <summary>
-/// 아티팩트 1개의 모든 데이터를 담는 ScriptableObject.
-/// Create → Normal → ArtifactDefinition 으로 생성하세요.
-/// </summary>
-[CreateAssetMenu(fileName = "ArtifactDef", menuName = "BBB/Normal/ArtifactDefinition")]
-public class NormalArtifactDefinition : ScriptableObject
+public enum NormalArtifactOwnedEffectType
 {
-    [Header("기본 정보")]
-    public ArtifactCategory category;
-    public ArtifactGrade grade;
+    None = 0,
+    TotalScoreBonus = 1,
+    LineClearScoreBonus = 2,
+    ComboScoreBonus = 3
+}
+
+public enum NormalArtifactEquipEffectType
+{
+    None = 0,
+
+    // 기본 점수형
+    TotalScoreBonus = 10,
+    LineClearScoreBonus = 11,
+    ComboScoreBonus = 12,
+    Score3CellBlockBonus = 13,
+    Score4CellBlockBonus = 14,
+    Score5CellBlockBonus = 15,
+    HorizontalLineScoreBonus = 16,
+    VerticalLineScoreBonus = 17,
+
+    // 조건 패시브형
+    LastPlacementClearBonus = 100,
+    LowSpaceClearBonus = 101,
+    AfterUsingActiveNextClearBonus = 102,
+    AfterUsingActiveNextRoundBonus = 103,
+    StreakNextRoundBonus = 104,
+    PerBlockPlacedNextClearBonus = 105,
+    MultiLineNextRoundFirstClearBonus = 106,
+    LargeBlockClearBonus = 107,
+    IsolatedHoleStackNextClearBonus = 108,
+    ReduceActiveCooldownOnLineClear = 109,
+
+    // 액티브형
+    RotateRemaining90 = 200,
+    RotateRemainingMinus90 = 201,
+    RotateRemaining180 = 202,
+    MirrorRemainingHorizontal = 203,
+    MirrorRemainingVertical = 204,
+    RerollRemainingAll = 205,
+    RebuildRemainingSafer = 206,
+
+    // 전설형
+    PreserveComboOnce = 300,
+    EmergencySecondChance = 301,
+    AmplifyBestEquippedArtifact = 302,
+    GravityCollapseBoard = 303
+}
+
+public enum NormalArtifactTriggerType
+{
+    None = 0,
+    Always = 1,
+    OnLastPlacementClear = 2,
+    OnLowSpace = 3,
+    AfterUsingActive = 4,
+    OnConsecutiveRoundsClear = 5,
+    OnBlockPlacedCount = 6,
+    OnMultiLineClearInRound = 7,
+    OnLargeBlockClear = 8,
+    OnIsolatedHoleStack = 9,
+    ManualButton = 10,
+    OnComboBreak = 11,
+    OnGameOver = 12
+}
+
+public enum NormalArtifactCooldownType
+{
+    None = 0,
+    Round = 1,
+    LineClear = 2,
+    BlockPlaced = 3,
+    GameOnce = 4
+}
+
+[CreateAssetMenu(fileName = "NormalArtifactDefinition", menuName = "BBB/Normal/Artifact Definition")]
+public sealed class NormalArtifactDefinition : ScriptableObject
+{
+    private const int MaxLevel = 10;
+
+    [Header("Identity")]
+    public string artifactId;
     public string displayName;
-    [TextArea(2, 4)]
-    public string description;
+    [TextArea(2, 5)] public string description;
+    public ArtifactGrade grade = ArtifactGrade.Normal;
     public Sprite icon;
 
-    [Header("발동 방식")]
-    public ArtifactTriggerType triggerType;
+    [Header("Core")]
+    public NormalArtifactType artifactType = NormalArtifactType.Passive;
+    public NormalArtifactEquipEffectType equipEffectType = NormalArtifactEquipEffectType.None;
+    public NormalArtifactOwnedEffectType ownedEffectType = NormalArtifactOwnedEffectType.None;
+    public NormalArtifactTriggerType runtimeTriggerType = NormalArtifactTriggerType.Always;
+    public NormalArtifactCooldownType cooldownType = NormalArtifactCooldownType.None;
 
-    // ── 쿨다운 (라운드 단위, PassiveOnly는 0) ──────
-    [Header("쿨다운 (세트 단위)")]
-    public int cooldownSets;
+    [Header("Runtime Flags")]
+    public bool activeUsableOncePerRound = true;
+    public bool applyToAllRemainingBlocks = true;
+    public bool autoTriggerOnGameOver = false;
 
-    // ── 패시브 수치 ────────────────────────────────
-    [Header("패시브 - 공통")]
-    public int bonusScorePerCell;          // ScoreBoost: 셀당 추가 점수
-    public float lineClearBonusMultiplier;   // ScoreBoost: 클리어 보너스 배율 추가 (0.2 = +20%)
+    [Header("Level Tables (Lv1~Lv10)")]
+    public float[] equipValues = new float[MaxLevel];
+    public float[] ownedValues = new float[MaxLevel];
+    public int[] cooldownValues = new int[MaxLevel];
 
-    [Header("패시브 - 콤보")]
-    public int bonusScorePerCombo;         // ComboBoost: 콤보당 추가 점수
-    public float milestoneBonusMultiplier;   // ComboBoost: 마일스톤 보너스 배율 추가
-    public int comboFailExemptCount;       // ComboBoost: 콤보 실패 면제 횟수
+    [Header("Meta / Economy")]
+    public int duplicateShardReward = 20;
+    public int shardSellGold = 20;
+    public int collectionPoint = 10;
+    [TextArea(1, 3)] public string ownedEffectDescription;
 
-    [Header("패시브 - 리롤")]
-    public int startTokenCount;            // ShapeReroll: 시작 토큰 수
-    public int tokenRechargeIntervalSets;  // ShapeReroll: 자동 충전 간격 (0=없음)
+    [Header("Optional Condition Params")]
+    public int paramA;
+    public int paramB;
+    public float paramFloat;
 
-    [Header("패시브 - 클리어")]
-    public int startChargeCount;           // EmergencyClear: 시작 사용권 수
-    public int chargeRechargeIntervalSets; // EmergencyClear: 자동 충전 간격 (0=없음)
+    public bool IsActiveArtifact =>
+        artifactType == NormalArtifactType.Active ||
+        artifactType == NormalArtifactType.LegendaryActive;
 
-    [Header("패시브 - 부활")]
-    public int reviveCount;                // SecondChance: 부활 횟수
-    public float boardClearRatio;            // SecondChance: 부활 시 보드 클리어 비율 (0~1)
-    public float reviveBonusScoreRatio;      // SecondChance: 부활 시 점수 보너스 비율
+    public bool IsLegendary =>
+        grade == ArtifactGrade.Legend ||
+        artifactType == NormalArtifactType.LegendaryPassive ||
+        artifactType == NormalArtifactType.LegendaryActive;
 
-    [Header("패시브 - 럭키")]
-    public float luckyChanceX2;             // LuckyBonus: ×2 확률 (0~1)
-    public float luckyChanceX3;             // LuckyBonus: ×3 확률 (0~1)
-    public float dropRateMultiplier;        // LuckyBonus: 드랍률 배율 (1.0=기본, 2.0=2배)
-    public int dropItemKeepExtraSets;     // LuckyBonus: 미획득 아이템 유지 추가 세트
+    public bool UsesCooldown =>
+        cooldownType != NormalArtifactCooldownType.None &&
+        cooldownType != NormalArtifactCooldownType.GameOnce;
 
-    // ── 액티브 수치 ────────────────────────────────
-    [Header("액티브 효과 수치")]
-    public int activeScoreMultiplierDuration; // ScoreBoost: 배율 지속 세트 수
-    public float activeScoreMultiplier;         // ScoreBoost: 배율 값 (1.5, 2.0, 3.0)
-    public int activeBonusScorePerClear;      // ScoreBoost: 활성 중 클리어마다 추가 점수
+    public string DisplayNameSafe =>
+        string.IsNullOrWhiteSpace(displayName) ? name : displayName;
 
-    public int activeComboCounterBonus;       // ComboBoost: 즉시 부여 콤보 카운터
-    public int activeComboInstantScore;       // ComboBoost: 콤보×N 즉시 점수 (콤보당 배율)
-    public int activeComboFixDuration;        // ComboBoost: 배율 고정 세트 수
+    public float GetEquipValue(int level)
+    {
+        return GetFloatByLevel(equipValues, level);
+    }
 
-    public bool activeRerollAll;               // ShapeReroll: 전체 교체 여부
-    public bool activeRerollSelective;         // ShapeReroll: 선택 교체 가능 여부
-    public bool activeRerollFreeChoice;        // ShapeReroll: 풀에서 직접 선택 (전설)
+    public float GetOwnedValue(int level)
+    {
+        return GetFloatByLevel(ownedValues, level);
+    }
 
-    public int activeClearAreaSize;           // EmergencyClear: 클리어 영역 크기 (3=3×3, 5=5×5)
-    public bool activeClearRowColMode;         // EmergencyClear: 행+열 동시 모드
-    public float activeClearBoardRatio;         // EmergencyClear: 보드 비율 클리어 (전설: 0.5)
-    public int activeClearBonusScorePerCell;  // EmergencyClear: 제거 셀당 보너스 점수
+    public int GetCooldownValue(int level)
+    {
+        return GetIntByLevel(cooldownValues, level);
+    }
 
-    public float activePreReviveClearRatio;     // SecondChance: 선제 클리어 비율 (에픽)
-    public float activeReviveBonusMultiplierDuration; // SecondChance: 부활 후 배율 지속 세트
+    public string GetOwnedEffectSummary(int level)
+    {
+        if (ownedEffectType == NormalArtifactOwnedEffectType.None)
+            return string.Empty;
 
-    public bool activeLuckyGuarantee;          // LuckyBonus: 다음 클리어 럭키 확정
-    public int activeLuckyBoostDuration;      // LuckyBonus: 확률 2배 지속 세트
-    public bool activeLuckyStackMax;           // LuckyBonus: 스택 최대치 고정 (전설)
-    public int activeLuckyStackMaxDuration;   // LuckyBonus: 스택 고정 지속 세트
-    public int activeDropSpawnCount;          // LuckyBonus: 즉시 드랍 아이템 스폰 수
+        float value = GetOwnedValue(level);
 
-    // ── 자동 발동 트리거 수치 ─────────────────────
-    [Header("자동 발동 트리거")]
-    public int autoTriggerIntervalSets;       // ScoreBoost: N세트마다 발동
-    public int autoTriggerComboCount;         // ComboBoost: N연속 달성 시
-    public int autoTriggerNoLuckyStreak;      // LuckyBonus: N세트 연속 실패 시
+        switch (ownedEffectType)
+        {
+            case NormalArtifactOwnedEffectType.TotalScoreBonus:
+                return $"보유 효과: 전체 점수 +{value:0.0}%";
+            case NormalArtifactOwnedEffectType.LineClearScoreBonus:
+                return $"보유 효과: 줄 클리어 점수 +{value:0.0}%";
+            case NormalArtifactOwnedEffectType.ComboScoreBonus:
+                return $"보유 효과: 콤보 점수 +{value:0.0}%";
+            default:
+                return string.Empty;
+        }
+    }
+
+    public string GetEquipEffectSummary(int level)
+    {
+        float value = GetEquipValue(level);
+        int cd = GetCooldownValue(level);
+
+        switch (equipEffectType)
+        {
+            case NormalArtifactEquipEffectType.TotalScoreBonus:
+                return $"장착 효과: 전체 점수 +{value:0.0}%";
+            case NormalArtifactEquipEffectType.LineClearScoreBonus:
+                return $"장착 효과: 줄 클리어 점수 +{value:0.0}%";
+            case NormalArtifactEquipEffectType.ComboScoreBonus:
+                return $"장착 효과: 콤보 점수 +{value:0.0}%";
+            case NormalArtifactEquipEffectType.Score3CellBlockBonus:
+                return $"장착 효과: 3칸 블록 점수 +{value:0.0}%";
+            case NormalArtifactEquipEffectType.Score4CellBlockBonus:
+                return $"장착 효과: 4칸 블록 점수 +{value:0.0}%";
+            case NormalArtifactEquipEffectType.Score5CellBlockBonus:
+                return $"장착 효과: 5칸 블록 점수 +{value:0.0}%";
+            case NormalArtifactEquipEffectType.RotateRemaining90:
+                return $"장착 효과: 남은 블록 전체 90도 회전 / 쿨다운 {cd}";
+            case NormalArtifactEquipEffectType.RotateRemainingMinus90:
+                return $"장착 효과: 남은 블록 전체 -90도 회전 / 쿨다운 {cd}";
+            case NormalArtifactEquipEffectType.RotateRemaining180:
+                return $"장착 효과: 남은 블록 전체 180도 회전 / 쿨다운 {cd}";
+            case NormalArtifactEquipEffectType.MirrorRemainingHorizontal:
+                return $"장착 효과: 남은 블록 전체 좌우반전 / 쿨다운 {cd}";
+            case NormalArtifactEquipEffectType.MirrorRemainingVertical:
+                return $"장착 효과: 남은 블록 전체 상하반전 / 쿨다운 {cd}";
+            case NormalArtifactEquipEffectType.RerollRemainingAll:
+                return $"장착 효과: 남은 블록 전체 재구성 / 쿨다운 {cd}";
+            case NormalArtifactEquipEffectType.RebuildRemainingSafer:
+                return $"장착 효과: 남은 블록 전체를 더 쉬운 형태로 재구성 / 쿨다운 {cd}";
+            case NormalArtifactEquipEffectType.PreserveComboOnce:
+                return $"장착 효과: 콤보 끊김 1회 무시 / 재충전 {cd}";
+            case NormalArtifactEquipEffectType.EmergencySecondChance:
+                return $"장착 효과: 게임 오버 직전 1회 응급 세트 지급 / 첫 클리어 +{value:0.0}%";
+            case NormalArtifactEquipEffectType.AmplifyBestEquippedArtifact:
+                return $"장착 효과: 가장 강한 다른 아티팩트 효과 {value:0.0}% 증폭";
+            case NormalArtifactEquipEffectType.GravityCollapseBoard:
+                return $"장착 효과: 보드 전체 낙하 후 줄 즉시 클리어 / 재사용 {cd} / 클리어 보너스 +{value:0.0}%";
+            default:
+                return string.Empty;
+        }
+    }
+
+    private static float GetFloatByLevel(float[] values, int level)
+    {
+        if (values == null || values.Length == 0)
+            return 0f;
+
+        int index = Mathf.Clamp(level - 1, 0, values.Length - 1);
+        return values[index];
+    }
+
+    private static int GetIntByLevel(int[] values, int level)
+    {
+        if (values == null || values.Length == 0)
+            return 0;
+
+        int index = Mathf.Clamp(level - 1, 0, values.Length - 1);
+        return values[index];
+    }
+
+    private void OnValidate()
+    {
+        EnsureArraySize(ref equipValues, MaxLevel);
+        EnsureArraySize(ref ownedValues, MaxLevel);
+        EnsureArraySize(ref cooldownValues, MaxLevel);
+
+        if (string.IsNullOrWhiteSpace(artifactId))
+            artifactId = name;
+    }
+
+    private static void EnsureArraySize(ref float[] array, int size)
+    {
+        if (array == null)
+        {
+            array = new float[size];
+            return;
+        }
+
+        if (array.Length == size)
+            return;
+
+        float[] newArray = new float[size];
+        int copyCount = Mathf.Min(array.Length, size);
+
+        for (int i = 0; i < copyCount; i++)
+            newArray[i] = array[i];
+
+        array = newArray;
+    }
+
+    private static void EnsureArraySize(ref int[] array, int size)
+    {
+        if (array == null)
+        {
+            array = new int[size];
+            return;
+        }
+
+        if (array.Length == size)
+            return;
+
+        int[] newArray = new int[size];
+        int copyCount = Mathf.Min(array.Length, size);
+
+        for (int i = 0; i < copyCount; i++)
+            newArray[i] = array[i];
+
+        array = newArray;
+    }
 }

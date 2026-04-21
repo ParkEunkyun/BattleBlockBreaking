@@ -1,0 +1,58 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea23bd5ba43d3914db2bd64cd1f74081, type: 3}
+  m_Name: Artifact_vertical_line_bonus_01
+  m_EditorClassIdentifier: 
+  artifactId: 'artifact_vertical_line_bonus_01 '
+  displayName: "\uC218\uC9C1 \uD574\uC11D\uC11C "
+  description: "\uC138\uB85C\uC904 \uD074\uB9AC\uC5B4 \uC810\uC218\uAC00 \uC99D\uAC00\uD55C\uB2E4."
+  grade: 1
+  icon: {fileID: -415614791, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
+  artifactType: 0
+  equipEffectType: 17
+  ownedEffectType: 2
+  runtimeTriggerType: 1
+  cooldownType: 0
+  activeUsableOncePerRound: 0
+  applyToAllRemainingBlocks: 1
+  autoTriggerOnGameOver: 0
+  equipValues:
+  - 15
+  - 17
+  - 19
+  - 21
+  - 24
+  - 27
+  - 30
+  - 33
+  - 36
+  - 40
+  ownedValues:
+  - 2.8
+  - 3.3
+  - 3.8
+  - 4.4
+  - 5.1
+  - 5.9
+  - 6.8
+  - 7.8
+  - 8.9
+  - 10
+  cooldownValues: 00000000000000000000000000000000000000000000000000000000000000000000000000000000
+  duplicateShardReward: 30
+  shardSellGold: 80
+  collectionPoint: 15
+  ownedEffectDescription: "\uBCF4\uC720 \uD6A8\uACFC: \uC904 \uD074\uB9AC\uC5B4 \uC810\uC218
+    \uC99D\uAC00\r"
+  paramA: 0
+  paramB: 0
+  paramFloat: 0

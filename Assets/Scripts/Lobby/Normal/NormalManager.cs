@@ -87,6 +87,21 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
     [SerializeField] private Sprite stoneMidSprite;
     [SerializeField] private Sprite stoneHighSprite;
 
+    [Header("Normal Line Clear FX")]
+    [SerializeField] private Color normalLineClearFxColor = new Color(1f, 0.88f, 0.35f, 1f);
+    [SerializeField] private float normalLineClearFxHoldDuration = 0.12f;
+    [SerializeField] private float normalLineClearFxFadeOutDuration = 0.18f;
+    [SerializeField] private float normalLineClearFxThicknessScale = 1.5f;
+
+    [Header("Combo FX")]
+    [SerializeField] private TMP_FontAsset comboFxFont;
+    [SerializeField] private Vector2 comboFxOffset = new Vector2(0f, 36f);
+    [SerializeField] private float comboFxRiseDistance = 78f;
+    [SerializeField] private float comboFxDuration = 0.52f;
+    [SerializeField] private Color comboFxColorLow = new Color(0.45f, 0.90f, 1f, 1f);
+    [SerializeField] private Color comboFxColorMid = new Color(0.80f, 0.45f, 1f, 1f);
+    [SerializeField] private Color comboFxColorHigh = new Color(1f, 0.82f, 0.25f, 1f);
+
     [Header("UI (자동 탐색)")]
     [SerializeField] private TMP_Text scoreText;
     [SerializeField] private TMP_Text bestScoreText;
@@ -155,6 +170,13 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
     // ????????????????????????????????????????????
     //  초기화
     // ????????????????????????????????????????????
+    private struct ClearLineInfo
+    {
+        public NormalLineClearFx.Axis axis;
+        public int index;
+    }
+
+
     private void Awake()
     {
         CacheCanvas();
@@ -442,14 +464,28 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         AddScore(placedScore);
 
         // 3. 라인 클리어
+        List<ClearLineInfo> clearInfos = CollectCompletedLines();
+
         int cleared = BattleBlockCore.ClearCompletedLines(_myOccupied, _myColors, _myBlockSprites);
         if (cleared > 0)
         {
+            SpawnNormalLineClearFx(clearInfos);
+
             _clearCountThisSet++;
             _totalClearCount += cleared;
             RecordMultiLine(cleared);
+
+            // 콤보는 "줄 제거 이벤트 1회당 +1"
+            int prevCombo = _combo;
+            _combo += 1;
+            _maxCombo = Mathf.Max(_maxCombo, _combo);
+
             ProcessClearScore(cleared);
+            ProcessComboReward(prevCombo, _combo);
             NotifyLineClear(cleared);
+
+            if (_combo >= 2)
+                SpawnNormalComboFx(_combo);
         }
 
         _currentBlocks[slotIndex] = null;
@@ -489,63 +525,34 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         bool hadClear = _clearCountThisSet > 0;
 
         // ── 콤보 처리 ──────────────────────────
-        if (hadClear)
+        // 콤보 증가는 ExecutePlaceBlock()에서 라인 제거 시점에 이미 처리.
+        // 여기서는 "이번 세트에 한 번도 클리어 못 했으면 리셋"만 담당.
+        if (!hadClear)
         {
-            _combo += _clearCountThisSet;
-
-            // 콤보 보너스
-            int comboBonus = _combo * ComboScorePerCount;
+            bool exempt = false;
             foreach (var s in _artifactSlots)
-                if (s?.Effect is ComboBoostEffect cb)
-                    comboBonus += _combo * cb.GetBonusScorePerCombo();
-            AddScore(comboBonus);
-
-            // 마일스톤
-            foreach (var (threshold, bonus) in ComboMilestones)
             {
-                if (_combo >= threshold && _combo - _clearCountThisSet < threshold)
+                if (s?.Effect is ComboBoostEffect cb && cb.TryExemptComboReset())
                 {
-                    float mult = 1f;
-                    foreach (var s in _artifactSlots)
-                        if (s?.Effect is ComboBoostEffect cb) mult *= cb.GetMilestoneBonusMultiplier();
-                    AddScore(Mathf.RoundToInt(bonus * mult));
+                    exempt = true;
+                    break;
                 }
             }
 
-            _maxCombo = Mathf.Max(_maxCombo, _combo);
-        }
-        else
-        {
-            // 콤보 리셋 (면제 체크)
-            bool exempted = false;
-            foreach (var s in _artifactSlots)
-                if (s?.Effect is ComboBoostEffect cb && cb.TryExemptComboReset())
-                { exempted = true; break; }
-            if (!exempted) _combo = 0;
+            if (!exempt)
+                _combo = 0;
         }
 
         // ── 아티팩트 SetEnd 훅 + 쿨다운 ────────
         var ctx = BuildContext();
         foreach (var slot in _artifactSlots)
         {
-            if (slot?.Effect == null) continue;
-            slot.Effect.OnSetEnd(ctx, hadClear);
-            if (slot.CooldownRemaining > 0) slot.CooldownRemaining--;
+            if (slot == null) continue;
 
-            // 자동 발동 체크
-            if (slot.Def?.triggerType == ArtifactTriggerType.AutoActive
-                && slot.IsReady && slot.Effect.CanActivate(ctx))
-                TryActivateArtifact(slot, ctx);
-        }
+            slot.Effect?.OnSetEnd(ctx, hadClear);
 
-        // ComboBoost 특수 자동 발동 (N콤보 배수마다)
-        foreach (var slot in _artifactSlots)
-        {
-            if (slot?.Def?.category != ArtifactCategory.ComboBoost) continue;
-            if (slot.Def.triggerType == ArtifactTriggerType.PassiveOnly) continue;
-            if (!slot.IsReady || slot.Def.autoTriggerComboCount <= 0) continue;
-            if (hadClear && _combo > 0 && _combo % slot.Def.autoTriggerComboCount == 0)
-                TryActivateArtifact(slot, ctx);
+            if (slot.CooldownRemaining > 0 && slot.CooldownRemaining != int.MaxValue)
+                slot.CooldownRemaining--;
         }
 
         // ── 드랍 아이템 ─────────────────────────
@@ -564,19 +571,44 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
     // ????????????????????????????????????????????
     private void TryActivateArtifact(ArtifactSlot slot, NormalArtifactContext ctx)
     {
-        if (!slot.IsReady || !slot.Effect.CanActivate(ctx)) return;
-        slot.Effect.Activate(ctx);
-        slot.CooldownRemaining = slot.Def.cooldownSets;
+        if (slot == null || slot.Def == null)
+            return;
+
+        if (!slot.IsReady)
+            return;
+
+        if (slot.Effect != null && !slot.Effect.CanActivate(ctx))
+            return;
+
+        slot.Effect?.Activate(ctx);
+
+        if (slot.Def.cooldownType == NormalArtifactCooldownType.GameOnce)
+            slot.CooldownRemaining = int.MaxValue;
+        else
+            slot.CooldownRemaining = Mathf.Max(0, slot.Def.GetCooldownValue(1));
+
         _artifactActivationCount++;
         RefreshArtifactSlotUI(slot);
     }
 
     private void OnClickArtifactSlot(int index)
     {
-        if (!CanAcceptUserInput()) return;
+        if (!CanAcceptUserInput())
+            return;
+
         var slot = _artifactSlots[index];
-        if (slot?.Def == null || slot.Def.triggerType != ArtifactTriggerType.ManualActive) return;
-        if (!slot.IsReady) return;
+        if (slot?.Def == null)
+            return;
+
+        if (!slot.Def.IsActiveArtifact)
+            return;
+
+        if (slot.Def.runtimeTriggerType != NormalArtifactTriggerType.ManualButton)
+            return;
+
+        if (!slot.IsReady)
+            return;
+
         TryActivateArtifact(slot, BuildContext());
         RefreshAllUI();
     }
@@ -927,16 +959,45 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
 
     private void RefreshArtifactSlotUI(ArtifactSlot slot)
     {
-        bool passive = slot.Def == null ||
-                       slot.Def.triggerType == ArtifactTriggerType.PassiveOnly;
+        if (slot == null)
+            return;
+
+        bool hasDef = slot.Def != null;
+        bool isActive = hasDef && slot.Def.IsActiveArtifact;
+        bool isConsumedGameOnce = slot.CooldownRemaining == int.MaxValue;
 
         if (slot.CooldownText != null)
-            slot.CooldownText.text = passive ? "" :
-                                     slot.CooldownRemaining > 0 ? slot.CooldownRemaining.ToString() :
-                                     "준비";
+        {
+            if (!hasDef || !isActive)
+            {
+                slot.CooldownText.text = "";
+            }
+            else if (isConsumedGameOnce)
+            {
+                slot.CooldownText.text = "X";
+            }
+            else if (slot.CooldownRemaining > 0)
+            {
+                slot.CooldownText.text = slot.CooldownRemaining.ToString();
+            }
+            else
+            {
+                slot.CooldownText.text = "";
+            }
+        }
 
         if (slot.ReadyGlow != null)
-            slot.ReadyGlow.enabled = !passive && slot.IsReady;
+        {
+            slot.ReadyGlow.enabled = hasDef && isActive && slot.IsReady && !isConsumedGameOnce;
+        }
+
+        if (slot.IconImage != null)
+        {
+            slot.IconImage.enabled = hasDef && slot.IconImage.sprite != null;
+            slot.IconImage.color = hasDef
+                ? (slot.IsReady && !isConsumedGameOnce ? Color.white : new Color(1f, 1f, 1f, 0.55f))
+                : new Color(1f, 1f, 1f, 0.25f);
+        }
     }
 
     // ????????????????????????????????????????????
@@ -1061,5 +1122,156 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
     {
         if (r == null) return;
         for (int i = r.childCount - 1; i >= 0; i--) Destroy(r.GetChild(i).gameObject);
+    }
+    private List<ClearLineInfo> CollectCompletedLines()
+    {
+        var result = new List<ClearLineInfo>();
+
+        for (int y = 0; y < BattleBlockCore.BoardSize; y++)
+        {
+            bool full = true;
+            for (int x = 0; x < BattleBlockCore.BoardSize; x++)
+            {
+                if (!_myOccupied[x, y])
+                {
+                    full = false;
+                    break;
+                }
+            }
+
+            if (full)
+            {
+                result.Add(new ClearLineInfo
+                {
+                    axis = NormalLineClearFx.Axis.Row,
+                    index = y
+                });
+            }
+        }
+
+        for (int x = 0; x < BattleBlockCore.BoardSize; x++)
+        {
+            bool full = true;
+            for (int y = 0; y < BattleBlockCore.BoardSize; y++)
+            {
+                if (!_myOccupied[x, y])
+                {
+                    full = false;
+                    break;
+                }
+            }
+
+            if (full)
+            {
+                result.Add(new ClearLineInfo
+                {
+                    axis = NormalLineClearFx.Axis.Column,
+                    index = x
+                });
+            }
+        }
+
+        return result;
+    }
+
+    private void SpawnNormalLineClearFx(List<ClearLineInfo> infos)
+    {
+        if (_myBoardRoot == null || infos == null || infos.Count == 0)
+            return;
+
+        foreach (var info in infos)
+        {
+            var go = new GameObject(
+                RuntimePrefix + "NormalLineClearFx",
+                typeof(RectTransform),
+                typeof(CanvasGroup),
+                typeof(Image),
+                typeof(NormalLineClearFx));
+
+            go.transform.SetParent(_myBoardRoot, false);
+            go.transform.SetAsLastSibling();
+
+            var fx = go.GetComponent<NormalLineClearFx>();
+            fx.Play(
+                info.axis,
+                info.index,
+                BattleBlockCore.BoardSize,
+                myBoardCellSize,
+                myBoardSpacing,
+                normalLineClearFxColor,
+                normalLineClearFxHoldDuration,
+                normalLineClearFxFadeOutDuration,
+                normalLineClearFxThicknessScale);
+        }
+    }
+    private void SpawnNormalComboFx(int combo)
+    {
+        if (_myBoardRoot == null || combo < 2)
+            return;
+
+        GameObject go = new GameObject(
+            RuntimePrefix + "NormalComboFx",
+            typeof(RectTransform),
+            typeof(CanvasGroup),
+            typeof(NormalComboFx));
+
+        go.transform.SetParent(_myBoardRoot, false);
+        go.transform.SetAsLastSibling();
+
+        RectTransform rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = comboFxOffset;
+
+        NormalComboFx fx = go.GetComponent<NormalComboFx>();
+        fx.Play(
+            combo,
+            comboFxFont,
+            GetComboFxColor(combo),
+            comboFxDuration,
+            comboFxRiseDistance);
+    }
+
+    private Color GetComboFxColor(int combo)
+    {
+        if (combo >= 6)
+            return comboFxColorHigh;
+
+        if (combo >= 4)
+            return comboFxColorMid;
+
+        return comboFxColorLow;
+    }
+    private void ProcessComboReward(int prevCombo, int newCombo)
+    {
+        if (newCombo <= 0)
+            return;
+
+        // 기본 콤보 보너스
+        int comboBonus = newCombo * ComboScorePerCount;
+        foreach (var s in _artifactSlots)
+        {
+            if (s?.Effect is ComboBoostEffect cb)
+                comboBonus += newCombo * cb.GetBonusScorePerCombo();
+        }
+
+        AddScore(comboBonus);
+
+        // 마일스톤 보너스
+        foreach (var (threshold, bonus) in ComboMilestones)
+        {
+            if (newCombo >= threshold && prevCombo < threshold)
+            {
+                float mult = 1f;
+                foreach (var s in _artifactSlots)
+                {
+                    if (s?.Effect is ComboBoostEffect cb)
+                        mult *= cb.GetMilestoneBonusMultiplier();
+                }
+
+                AddScore(Mathf.RoundToInt(bonus * mult));
+            }
+        }
     }
 }

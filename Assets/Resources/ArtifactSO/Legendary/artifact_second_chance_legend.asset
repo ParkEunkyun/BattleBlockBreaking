@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea23bd5ba43d3914db2bd64cd1f74081, type: 3}
+  m_Name: artifact_second_chance_legend
+  m_EditorClassIdentifier: 
+  artifactId: artifact_second_chance_legend
+  displayName: "\uBD88\uC0AC \uD68C\uB85C "
+  description: "\uAC8C\uC784 \uC624\uBC84 \uC9C1\uC804 1\uD68C \uC751\uAE09 \uC138\uD2B8\uB97C
+    \uC9C0\uAE09\uD558\uACE0, \uC774\uD6C4 \uCCAB \uD074\uB9AC\uC5B4 \uC810\uC218\uB97C
+    \uB192\uC778\uB2E4.\r"
+  grade: 4
+  icon: {fileID: 1822792717, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
+  artifactType: 3
+  equipEffectType: 301
+  ownedEffectType: 2
+  runtimeTriggerType: 12
+  cooldownType: 4
+  activeUsableOncePerRound: 0
+  applyToAllRemainingBlocks: 1
+  autoTriggerOnGameOver: 1
+  equipValues:
+  - 20
+  - 25
+  - 30
+  - 35
+  - 40
+  - 45
+  - 50
+  - 55
+  - 60
+  - 70
+  ownedValues:
+  - 7
+  - 8.1
+  - 9.3
+  - 10.6
+  - 12
+  - 13.5
+  - 15
+  - 16.8
+  - 18.6
+  - 21
+  cooldownValues: 00000000000000000000000000000000000000000000000000000000000000000000000000000000
+  duplicateShardReward: 120
+  shardSellGold: 5500
+  collectionPoint: 60
+  ownedEffectDescription: "\uBCF4\uC720 \uD6A8\uACFC: \uC904 \uD074\uB9AC\uC5B4 \uC810\uC218
+    \uC99D\uAC00\r"
+  paramA: 1
+  paramB: 0
+  paramFloat: 0

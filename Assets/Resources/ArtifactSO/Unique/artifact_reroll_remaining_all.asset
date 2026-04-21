@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea23bd5ba43d3914db2bd64cd1f74081, type: 3}
+  m_Name: artifact_reroll_remaining_all
+  m_EditorClassIdentifier: 
+  artifactId: 'artifact_reroll_remaining_all '
+  displayName: "\uC7AC\uD3B8\uC131 \uBAA8\uB4C8 "
+  description: "\uB0A8\uC544\uC788\uB294 \uBE14\uB85D \uC804\uCCB4\uB97C \uC7AC\uAD6C\uC131/\uC7AC\uCD94\uCCA8\uD55C\uB2E4."
+  grade: 3
+  icon: {fileID: 2064431157, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
+  artifactType: 2
+  equipEffectType: 205
+  ownedEffectType: 3
+  runtimeTriggerType: 10
+  cooldownType: 1
+  activeUsableOncePerRound: 1
+  applyToAllRemainingBlocks: 1
+  autoTriggerOnGameOver: 0
+  equipValues:
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  ownedValues:
+  - 5
+  - 5.8
+  - 6.7
+  - 7.7
+  - 8.8
+  - 10
+  - 11.3
+  - 12.7
+  - 14.2
+  - 16
+  cooldownValues: 05000000050000000400000004000000040000000300000003000000030000000200000002000000
+  duplicateShardReward: 70
+  shardSellGold: 1400
+  collectionPoint: 40
+  ownedEffectDescription: "\uBCF4\uC720 \uD6A8\uACFC: \uCF64\uBCF4 \uC810\uC218 \uC99D\uAC00\r"
+  paramA: 0
+  paramB: 0
+  paramFloat: 0

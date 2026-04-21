@@ -144,10 +144,10 @@ public class LobbyManager : MonoBehaviour
     private Button _recordTabButton;
     private Button _claimRewardButton;
 
-    private GameObject _loadoutPopupRoot;
-    private GameObject _matchPopupRoot;
+    [SerializeField] private GameObject _loadoutPopupRoot;
+    [SerializeField] private GameObject _matchPopupRoot;
 
-    private GameObject _nicknamePopupRoot;
+    [SerializeField] private GameObject _nicknamePopupRoot;
     [SerializeField] private TMP_InputField _nicknameInputField;
     private Button _confirmNicknameButton;
     private Button _closeNicknameButton;
@@ -209,6 +209,13 @@ public class LobbyManager : MonoBehaviour
     [SerializeField] private GameObject _normalArtifactPopupRoot;
     [SerializeField] private GameObject _normalArtifactPopupPanel;
     [SerializeField] private TMP_Text _normalArtifactPopupTitleText;
+
+    [SerializeField] private Sprite normalArtifactSlotSprite;
+    [SerializeField] private Sprite rareArtifactSlotSprite;
+    [SerializeField] private Sprite epicArtifactSlotSprite;
+    [SerializeField] private Sprite uniqueArtifactSlotSprite;
+    [SerializeField] private Sprite legendArtifactSlotSprite;
+    [SerializeField] private Sprite emptyArtifactSlotSprite;
 
     private const string PrefNormalArtifactCount = "BBB_LOBBY_NORMAL_ARTIFACT_COUNT";
     private const string PrefNormalArtifact0 = "BBB_LOBBY_NORMAL_ARTIFACT_0";
@@ -282,14 +289,21 @@ public class LobbyManager : MonoBehaviour
             return;
         }
 
+        Transform LobbyCanvas = FindLobbyCanvas();
+        if (safeArea == null)
+        {
+            Debug.LogError("LobbyCanvas 를 찾을 수 없음");
+            return;
+        }
+
         _nicknameText = FindTMP(safeArea, "TopBarRoot/ProfilePanel/NicknameText");
         _tierText = FindTMP(safeArea, "TopBarRoot/ProfilePanel/TierBadgeRoot/TierText");
         _goldText = FindTMP(safeArea, "TopBarRoot/CurrencyPanel/GoldText");
         _seasonText = FindTMP(safeArea, "MainContentRoot/LogoRoot/SeasonBannerPanel/SeasonText");
         _missionText = FindTMP(safeArea, "MainContentRoot/MissionRoot/DailyMissionPanel/MissionText");
         _noticeText = FindTMP(safeArea, "MainContentRoot/NoticeRoot/NoticeText");
-        _matchStatusText = FindTMP(safeArea, "MatchPopupRoot/MatchPopupPanel/MatchStatusText");
-        _popupTitleText = FindTMP(safeArea, "LoadoutPopupRoot/LoadoutPopupPanel/PopupTitleText");
+        _matchStatusText = FindTMP(LobbyCanvas, "MatchPopupRoot/MatchPopupPanel/MatchStatusText");
+        _popupTitleText = FindTMP(LobbyCanvas, "LoadoutPopupRoot/LoadoutPopupPanel/PopupTitleText");
 
         _settingsButton = FindButton(safeArea, "TopBarRoot/SettingsButton");
         _startBattleButton = FindButton(safeArea, "MainContentRoot/MatchStartRoot/StartBattleButton");
@@ -304,18 +318,18 @@ public class LobbyManager : MonoBehaviour
         _shopTabButton = FindButton(safeArea, "BottomTabRoot/ShopTabButton");
         _recordTabButton = FindButton(safeArea, "BottomTabRoot/RecordTabButton");
 
-        _loadoutPopupRoot = FindGO(safeArea, "LoadoutPopupRoot");
-        _matchPopupRoot = FindGO(safeArea, "MatchPopupRoot");
+        _loadoutPopupRoot = FindGO(LobbyCanvas, "LoadoutPopupRoot");
+        _matchPopupRoot = FindGO(LobbyCanvas, "MatchPopupRoot");
 
-        _confirmLoadoutButton = FindButton(safeArea, "LoadoutPopupRoot/LoadoutPopupPanel/ConfirmLoadoutButton");
-        _closeLoadoutButton = FindButton(safeArea, "LoadoutPopupRoot/LoadoutPopupPanel/CloseLoadoutButton");
-        _cancelMatchButton = FindButton(safeArea, "MatchPopupRoot/MatchPopupPanel/CancelMatchButton");
+        _confirmLoadoutButton = FindButton(LobbyCanvas, "LoadoutPopupRoot/LoadoutPopupPanel/ConfirmLoadoutButton");
+        _closeLoadoutButton = FindButton(LobbyCanvas, "LoadoutPopupRoot/LoadoutPopupPanel/CloseLoadoutButton");
+        _cancelMatchButton = FindButton(LobbyCanvas, "MatchPopupRoot/MatchPopupPanel/CancelMatchButton");
 
-        _nicknamePopupRoot = FindGO(safeArea, "NicknamePopupRoot");
-        _nicknameInputField = FindInputField(safeArea, "NicknamePopupRoot/NicknamePopupPanel/Top/NicknameInputField");
-        _confirmNicknameButton = FindButton(safeArea, "NicknamePopupRoot/NicknamePopupPanel/Bottom/ConfirmNicknameButton");
-        _closeNicknameButton = FindButton(safeArea, "NicknamePopupRoot/NicknamePopupPanel/Bottom/CloseNicknameButton");
-        _nicknameGuideText = FindTMP(safeArea, "NicknamePopupRoot/NicknamePopupPanel/Top/GuideText");
+        _nicknamePopupRoot = FindGO(LobbyCanvas, "NicknamePopupRoot");
+        _nicknameInputField = FindInputField(LobbyCanvas, "NicknamePopupRoot/NicknamePopupPanel/Top/NicknameInputField");
+        _confirmNicknameButton = FindButton(LobbyCanvas, "NicknamePopupRoot/NicknamePopupPanel/Bottom/ConfirmNicknameButton");
+        _closeNicknameButton = FindButton(LobbyCanvas, "NicknamePopupRoot/NicknamePopupPanel/Bottom/CloseNicknameButton");
+        _nicknameGuideText = FindTMP(LobbyCanvas, "NicknamePopupRoot/NicknamePopupPanel/Top/GuideText");
 
         _loadoutPreviewRoot = safeArea.Find("MainContentRoot/LoadoutPreviewRoot");
         _normalArtifactPreviewRoot = safeArea.Find("MainContentRoot/LoadoutPreviewRoot/NormalArtifactPreviewRoot");
@@ -340,25 +354,25 @@ public class LobbyManager : MonoBehaviour
 
         for (int i = 0; i < 3; i++)
         {
-            Transform slot = safeArea.Find($"LoadoutPopupRoot/LoadoutPopupPanel/SelectedAttackPreviewRoot/SelectedAttackSlot{i + 1}");
+            Transform slot = LobbyCanvas.Find($"LoadoutPopupRoot/LoadoutPopupPanel/SelectedAttackPreviewRoot/SelectedAttackSlot{i + 1}");
             _selectedAttackPreviewIcons[i] = EnsureSlotIcon(slot);
         }
 
         for (int i = 0; i < 2; i++)
         {
-            Transform slot = safeArea.Find($"LoadoutPopupRoot/LoadoutPopupPanel/SelectedSupportPreviewRoot/SelectedSupportSlot{i + 1}");
+            Transform slot = LobbyCanvas.Find($"LoadoutPopupRoot/LoadoutPopupPanel/SelectedSupportPreviewRoot/SelectedSupportSlot{i + 1}");
             _selectedSupportPreviewIcons[i] = EnsureSlotIcon(slot);
         }
 
         for (int i = 0; i < _attackChoiceButtons.Length; i++)
         {
-            Transform tr = safeArea.Find($"LoadoutPopupRoot/LoadoutPopupPanel/AttackSelectRoot/AttackItemButton{i + 1}");
+            Transform tr = LobbyCanvas.Find($"LoadoutPopupRoot/LoadoutPopupPanel/AttackSelectRoot/AttackItemButton{i + 1}");
             _attackChoiceButtons[i] = CacheChoiceButton(tr, true);
         }
 
         for (int i = 0; i < _supportChoiceButtons.Length; i++)
         {
-            Transform tr = safeArea.Find($"LoadoutPopupRoot/LoadoutPopupPanel/SupportSelectRoot/SupportItemButton{i + 1}");
+            Transform tr = LobbyCanvas.Find($"LoadoutPopupRoot/LoadoutPopupPanel/SupportSelectRoot/SupportItemButton{i + 1}");
             _supportChoiceButtons[i] = CacheChoiceButton(tr, false);
         }
 
@@ -1146,6 +1160,14 @@ public class LobbyManager : MonoBehaviour
         GameObject safeAreaGo = GameObject.Find("SafeArea");
         return safeAreaGo != null ? safeAreaGo.transform : null;
     }
+    private Transform FindLobbyCanvas()
+    {
+        if (transform.parent != null && transform.parent.name == "LobbyCanvas")
+            return transform.parent;
+
+        GameObject safeAreaGo = GameObject.Find("LobbyCanvas");
+        return safeAreaGo != null ? safeAreaGo.transform : null;
+    }
 
     private static TMP_Text FindTMP(Transform root, string path)
     {
@@ -1458,6 +1480,7 @@ public class LobbyManager : MonoBehaviour
     private void CacheNormalArtifactUiRefs()
     {
         Transform safeArea = FindSafeArea();
+        Transform LobbyCanvas = FindLobbyCanvas();
         Transform previewRoot = _normalArtifactPreviewRoot;
 
         for (int i = 0; i < _normalArtifactPreviewIcons.Length; i++)
@@ -1471,7 +1494,7 @@ public class LobbyManager : MonoBehaviour
             : null;
 
         _normalArtifactPopupRoot = safeArea != null
-            ? safeArea.Find("ArtifactPopupRoot")?.gameObject
+            ? LobbyCanvas.Find("ArtifactPopupRoot")?.gameObject
             : null;
 
         _normalArtifactPopupPanel = _normalArtifactPopupRoot != null
@@ -1634,6 +1657,7 @@ public class LobbyManager : MonoBehaviour
                 : null;
 
             SetPreviewIcon(_normalArtifactPreviewIcons[i], def != null ? def.icon : null, def != null);
+            SetArtifactSlotFrameSprite(_normalArtifactPreviewIcons[i], def);
         }
     }
 
@@ -1648,11 +1672,7 @@ public class LobbyManager : MonoBehaviour
 
             bool selected = def != null && _editingNormalArtifacts.Contains(def);
 
-            RefreshChoiceButtonVisual(
-                refs,
-                def != null ? def.icon : null,
-                GetNormalArtifactDisplayName(def),
-                selected);
+            RefreshNormalArtifactChoiceButtonVisual(refs, def, selected);
 
             if (refs != null && refs.button != null)
                 refs.button.interactable = def != null && (selected || _editingNormalArtifacts.Count < 4);
@@ -1665,6 +1685,7 @@ public class LobbyManager : MonoBehaviour
                 : null;
 
             SetPreviewIcon(_selectedNormalArtifactPreviewIcons[i], def != null ? def.icon : null, def != null);
+            SetArtifactSlotFrameSprite(_selectedNormalArtifactPreviewIcons[i], def);
         }
 
         if (_confirmNormalArtifactButton != null)
@@ -1709,10 +1730,78 @@ public class LobbyManager : MonoBehaviour
         return new ChoiceButtonRefs
         {
             button = tr.GetComponent<Button>(),
-            background = tr.Find("Background")?.GetComponent<Image>(),
+            background = tr.GetComponent<Image>(), // background = tr.Find("Background")?.GetComponent<Image>(),
             iconImage = tr.Find("IconImage")?.GetComponent<Image>(),
             nameText = tr.Find("NameText")?.GetComponent<TMP_Text>(),
             selectedFrame = tr.Find("SelectedFrame")?.gameObject
         };
+    }
+    private Sprite GetArtifactGradeSlotSprite(NormalArtifactDefinition def)
+    {
+        if (def == null)
+            return emptyArtifactSlotSprite != null ? emptyArtifactSlotSprite : normalArtifactSlotSprite;
+
+        switch (def.grade)
+        {
+            case ArtifactGrade.Normal:
+                return normalArtifactSlotSprite;
+            case ArtifactGrade.Rare:
+                return rareArtifactSlotSprite;
+            case ArtifactGrade.Epic:
+                return epicArtifactSlotSprite;
+            case ArtifactGrade.Unique:
+                return uniqueArtifactSlotSprite;
+            case ArtifactGrade.Legend:
+                return legendArtifactSlotSprite;
+            default:
+                return normalArtifactSlotSprite;
+        }
+    }
+
+    private void RefreshNormalArtifactChoiceButtonVisual(ChoiceButtonRefs refs, NormalArtifactDefinition def, bool selected)
+    {
+        if (refs == null)
+            return;
+
+        if (refs.iconImage != null)
+        {
+            refs.iconImage.sprite = def != null ? def.icon : null;
+            refs.iconImage.enabled = def != null && def.icon != null;
+            refs.iconImage.color = Color.white;
+            refs.iconImage.preserveAspect = true;
+        }
+
+        if (refs.nameText != null)
+            refs.nameText.text = def != null ? GetNormalArtifactDisplayName(def) : string.Empty;
+
+        if (refs.selectedFrame != null)
+            refs.selectedFrame.SetActive(selected);
+
+        if (refs.background != null)
+        {
+            refs.background.sprite = GetArtifactGradeSlotSprite(def);
+            refs.background.color = Color.white;
+            refs.background.type = Image.Type.Simple;
+            refs.background.preserveAspect = false;
+        }
+    }
+
+    private void SetArtifactSlotFrameSprite(Image iconImage, NormalArtifactDefinition def)
+    {
+        if (iconImage == null)
+            return;
+
+        Transform slotRoot = iconImage.transform.parent;
+        if (slotRoot == null)
+            return;
+
+        Image slotImage = slotRoot.GetComponent<Image>();
+        if (slotImage == null)
+            return;
+
+        slotImage.sprite = GetArtifactGradeSlotSprite(def);
+        slotImage.color = Color.white;
+        slotImage.type = Image.Type.Simple;
+        slotImage.preserveAspect = false;
     }
 }

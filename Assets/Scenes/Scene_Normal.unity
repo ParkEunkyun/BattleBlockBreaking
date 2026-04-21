@@ -159,7 +159,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 200, y: 200}
+  m_SizeDelta: {x: 310, y: 300}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &13834782
 MonoBehaviour:
@@ -1818,7 +1818,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 8.638672, y: -111.99979}
+  m_AnchoredPosition: {x: 623, y: -4403}
   m_SizeDelta: {x: 351.7231, y: 154.3349}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &772884776
@@ -2197,7 +2197,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 200, y: 200}
+  m_SizeDelta: {x: 310, y: 300}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1168679490
 MonoBehaviour:
@@ -2709,7 +2709,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1473744115}
-  - component: {fileID: 1473744116}
   m_Layer: 5
   m_Name: MyBoardRoot
   m_TagString: Untagged
@@ -2736,28 +2735,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 900, y: 900}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1473744116
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1473744114}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3c9150586e68576418915fb2ced61e97, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  boardCellRoot: {fileID: 1473744115}
-  boardSize: 8
-  topRowIsMaxY: 0
-  preScaleUpDuration: 0.5
-  preScaleMultiplier: 1.5
-  cellShrinkDuration: 0.008
-  intervalBetweenCells: 0.0015
-  preScaleEase: 6
-  shrinkEase: 26
-  fxSortingOrder: 500
 --- !u!1 &1524103971
 GameObject:
   m_ObjectHideFlags: 0
@@ -2805,23 +2782,23 @@ MonoBehaviour:
   boardCellPrefab: {fileID: 5290489376626900888, guid: bb056b379de8b8542abd53252403fbf3, type: 3}
   previewCellPrefab: {fileID: 5290489376626900888, guid: 28d2fa834e795fd41a019ab0ec3013b4, type: 3}
   blockSprites:
-    h3CellSprite: {fileID: -1128444859, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    l3CellSprite: {fileID: -1128444859, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    h4CellSprite: {fileID: -1352282757, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    o4CellSprite: {fileID: -1352282757, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    t4CellSprite: {fileID: 588408025, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    l4CellSprite: {fileID: 588408025, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    l4MCellSprite: {fileID: 660595317, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    z4CellSprite: {fileID: 660595317, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    z4MCellSprite: {fileID: -735295249, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    h5CellSprite: {fileID: -735295249, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    p5CellSprite: {fileID: -1128444859, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    t5CellSprite: {fileID: -1128444859, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    l5CellSprite: {fileID: -1352282757, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    curseDiag3CellSprite: {fileID: -1352282757, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    curseSplit3CellSprite: {fileID: 588408025, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    curseDiag4CellSprite: {fileID: 660595317, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
-    curseSplit4CellSprite: {fileID: -735295249, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    h3CellSprite: {fileID: 1067153544, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    l3CellSprite: {fileID: 1067153544, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    h4CellSprite: {fileID: 949480091, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    o4CellSprite: {fileID: 949480091, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    t4CellSprite: {fileID: -1877634053, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    l4CellSprite: {fileID: -1877634053, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    l4MCellSprite: {fileID: 299857876, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    z4CellSprite: {fileID: 299857876, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    z4MCellSprite: {fileID: -362438991, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    h5CellSprite: {fileID: -362438991, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    p5CellSprite: {fileID: 1067153544, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    t5CellSprite: {fileID: 1067153544, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    l5CellSprite: {fileID: 949480091, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    curseDiag3CellSprite: {fileID: 949480091, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    curseSplit3CellSprite: {fileID: -1877634053, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    curseDiag4CellSprite: {fileID: 299857876, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
+    curseSplit4CellSprite: {fileID: -362438991, guid: 2778d44d186f3f5498130b805d744ea2, type: 3}
   myBoardCellSize: {x: 125, y: 125}
   myBoardSpacing: {x: -1, y: -1}
   slotPreviewCellSize: 75
@@ -2834,6 +2811,17 @@ MonoBehaviour:
   stoneBasicSprite: {fileID: 0}
   stoneMidSprite: {fileID: 0}
   stoneHighSprite: {fileID: 0}
+  normalLineClearFxColor: {r: 0.103773594, g: 0.103773594, b: 0.103773594, a: 0.95}
+  normalLineClearFxHoldDuration: 0.08
+  normalLineClearFxFadeOutDuration: 0.14
+  normalLineClearFxThicknessScale: 1.12
+  comboFxFont: {fileID: 11400000, guid: 3c47d6f2f47ba0e4c83d5fec9b554b99, type: 2}
+  comboFxOffset: {x: 0, y: 36}
+  comboFxRiseDistance: 78
+  comboFxDuration: 0.52
+  comboFxColorLow: {r: 0.45, g: 0.9, b: 1, a: 1}
+  comboFxColorMid: {r: 0.8, g: 0.45, b: 1, a: 1}
+  comboFxColorHigh: {r: 1, g: 0.82, b: 0.25, a: 1}
   scoreText: {fileID: 0}
   bestScoreText: {fileID: 0}
   comboText: {fileID: 0}
@@ -3431,9 +3419,9 @@ MonoBehaviour:
   m_UiScaleMode: 1
   m_ReferencePixelsPerUnit: 100
   m_ScaleFactor: 1
-  m_ReferenceResolution: {x: 1080, y: 1920}
+  m_ReferenceResolution: {x: 2960, y: 1440}
   m_ScreenMatchMode: 0
-  m_MatchWidthOrHeight: 0
+  m_MatchWidthOrHeight: 0.65
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
@@ -4193,7 +4181,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 200, y: 200}
+  m_SizeDelta: {x: 310, y: 300}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1852443906
 MonoBehaviour:

@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea23bd5ba43d3914db2bd64cd1f74081, type: 3}
+  m_Name: artifact_combo_preserve_legend
+  m_EditorClassIdentifier: 
+  artifactId: 'artifact_combo_preserve_legend '
+  displayName: "\uC601\uC810 \uC720\uC9C0\uC7A5\uCE58 "
+  description: "\uCF64\uBCF4\uAC00 \uB04A\uAE38 \uC0C1\uD669\uC744 1\uD68C \uBB34\uC2DC\uD55C\uB2E4."
+  grade: 4
+  icon: {fileID: -619134495, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
+  artifactType: 3
+  equipEffectType: 300
+  ownedEffectType: 2
+  runtimeTriggerType: 11
+  cooldownType: 1
+  activeUsableOncePerRound: 0
+  applyToAllRemainingBlocks: 1
+  autoTriggerOnGameOver: 0
+  equipValues:
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  ownedValues:
+  - 7
+  - 8.1
+  - 9.3
+  - 10.6
+  - 12
+  - 13.5
+  - 15
+  - 16.8
+  - 18.6
+  - 21
+  cooldownValues: 07000000070000000600000006000000050000000500000004000000040000000300000003000000
+  duplicateShardReward: 120
+  shardSellGold: 5500
+  collectionPoint: 60
+  ownedEffectDescription: "\uBCF4\uC720 \uD6A8\uACFC: \uCF64\uBCF4 \uC810\uC218 \uC99D\uAC00"
+  paramA: 1
+  paramB: 0
+  paramFloat: 0
