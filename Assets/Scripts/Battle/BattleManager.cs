@@ -236,6 +236,36 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
     [SerializeField] private BattleLineClearFx _lineClearFx;
     private bool _isResolvingLineClearFx;
 
+    [SerializeField] private int _lineClearFxPoolSize = 4;
+
+    private readonly Queue<BattleLineClearFx> _lineClearFxPool = new Queue<BattleLineClearFx>();
+    private readonly List<BattleLineClearFx> _activeLineClearFxInstances = new List<BattleLineClearFx>();
+    private Transform _lineClearFxPoolRoot;
+
+    [Header("Combo FX")]
+    [SerializeField] private BattleComboFx _comboFxTemplate;
+    [SerializeField] private TMP_FontAsset _comboFxFont;
+    [SerializeField] private Vector2 _comboFxOffset = new Vector2(0f, 36f);
+    [SerializeField] private float _comboFxRiseDistance = 72f;
+    [SerializeField] private float _comboFxDuration = 0.46f;
+    [SerializeField] private int _comboFxPoolSize = 4;
+    [SerializeField] private Color _comboFxColorLow = new Color(0.45f, 0.90f, 1f, 1f);
+    [SerializeField] private Color _comboFxColorMid = new Color(0.80f, 0.45f, 1f, 1f);
+    [SerializeField] private Color _comboFxColorHigh = new Color(1f, 0.82f, 0.25f, 1f);
+
+    [Header("Combo Score")]
+    [SerializeField] private int[] _comboBonusTable = { 0, 0, 15, 35, 60, 90, 125, 165, 210, 260 };
+
+    private readonly Queue<BattleComboFx> _comboFxPool = new Queue<BattleComboFx>();
+    private Transform _comboFxPoolRoot;
+
+    private int _comboCount;
+    private int _maxComboCount;
+    private RectTransform _comboFxAnchorRoot;
+
+    private bool _comboHadClearThisRound;
+    private bool _comboRoundStartedOnce;
+
     [Header("Defense FX")]
     [SerializeField] private BattleDefenseBoardFx _myBoardDefenseFx;
     private bool _isResolvingDefenseFx;
@@ -515,8 +545,11 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
         ShowLoadingOverlay(IsRankedBattle ? "상대 연결 중..." : "준비 중...");
 
         BuildBoards();
-        ClearOpponentBoardSnapshot();
+        WarmupLineClearFxPool();
+        WarmupComboFxPool();
+        ResetBattleComboState();
 
+        ClearOpponentBoardSnapshot();
         ResetCurrentRoundBlocks();
         HideDefensePhase();
         HideResultPhase();
@@ -707,6 +740,7 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
         _opponentNameText = FindTMP(safeArea, "TopHudRoot/OpponentMiniBoardPanel/OpponentNameText");
 
         _myBoardRoot = FindRect(safeArea, "BoardRoot/MyBoardRoot");
+        _comboFxAnchorRoot = _myBoardRoot;
         _opponentMiniBoardRoot = FindRect(safeArea, "TopHudRoot/OpponentMiniBoardPanel/OpponentMiniBoardRoot");
         _ownedItemRoot = FindRect(safeArea, "OwnedItemRoot");
 
@@ -876,7 +910,249 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
         RefreshBoardVisual();
         RefreshOpponentMiniBoard();
     }
+    private void WarmupLineClearFxPool()
+    {
+        if (_lineClearFx == null)
+        {
+            Debug.LogWarning("[BattleManager] _lineClearFx 가 비어있어서 LineClearFxPool warmup 을 건너뜀");
+            return;
+        }
 
+        if (_lineClearFxPoolRoot == null)
+        {
+            GameObject root = new GameObject(RuntimePrefix + "BattleLineClearFxPool", typeof(RectTransform));
+            root.transform.SetParent(transform, false);
+            _lineClearFxPoolRoot = root.transform;
+        }
+
+        _lineClearFxPool.Clear();
+        _activeLineClearFxInstances.Clear();
+
+        // 원본 템플릿은 절대 이동/비활성화하지 않음
+        int targetCount = Mathf.Max(1, _lineClearFxPoolSize);
+
+        for (int i = 0; i < targetCount; i++)
+        {
+            BattleLineClearFx clone = Instantiate(_lineClearFx, _lineClearFxPoolRoot);
+            clone.PrepareForReuse();
+            clone.SetReturnToPool(ReturnLineClearFxToPool);
+            clone.RebuildCache();
+            clone.gameObject.SetActive(false);
+            _lineClearFxPool.Enqueue(clone);
+        }
+    }
+
+    private void WarmupComboFxPool()
+    {
+        if (_comboFxTemplate == null)
+        {
+            Debug.LogWarning("[BattleManager] _comboFxTemplate 가 비어있어서 ComboFxPool warmup 을 건너뜀");
+            return;
+        }
+
+        if (_comboFxPoolRoot == null)
+        {
+            GameObject root = new GameObject(RuntimePrefix + "BattleComboFxPool", typeof(RectTransform));
+            root.transform.SetParent(transform, false);
+            _comboFxPoolRoot = root.transform;
+        }
+
+        _comboFxPool.Clear();
+
+        int count = Mathf.Max(1, _comboFxPoolSize);
+        for (int i = 0; i < count; i++)
+        {
+            BattleComboFx clone = Instantiate(_comboFxTemplate, _comboFxPoolRoot);
+            clone.PrepareForReuse();
+            clone.OnFinished = ReturnComboFxToPool;
+            clone.gameObject.SetActive(false);
+            _comboFxPool.Enqueue(clone);
+        }
+
+        _comboFxTemplate.gameObject.SetActive(false);
+    }
+
+    private BattleComboFx RentComboFx()
+    {
+        if (_comboFxTemplate == null)
+            return null;
+
+        if (_comboFxPool.Count == 0)
+        {
+            BattleComboFx clone = Instantiate(_comboFxTemplate, _comboFxPoolRoot != null ? _comboFxPoolRoot : transform);
+            clone.PrepareForReuse();
+            clone.OnFinished = ReturnComboFxToPool;
+            clone.gameObject.SetActive(false);
+            _comboFxPool.Enqueue(clone);
+        }
+
+        BattleComboFx fx = _comboFxPool.Dequeue();
+        if (fx == null)
+            return null;
+
+        RectTransform parent = _comboFxAnchorRoot != null ? _comboFxAnchorRoot : _myBoardRoot;
+        fx.transform.SetParent(parent, false);
+
+        RectTransform rt = fx.transform as RectTransform;
+        if (rt != null)
+        {
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = _comboFxOffset;
+        }
+
+        fx.gameObject.SetActive(true);
+        return fx;
+    }
+
+    private void ReturnComboFxToPool(BattleComboFx fx)
+    {
+        if (fx == null)
+            return;
+
+        fx.PrepareForReuse();
+        fx.transform.SetParent(_comboFxPoolRoot != null ? _comboFxPoolRoot : transform, false);
+        fx.gameObject.SetActive(false);
+        _comboFxPool.Enqueue(fx);
+    }
+
+    private void SpawnBattleComboFx(int combo)
+    {
+        if (combo < 2)
+            return;
+
+        BattleComboFx fx = RentComboFx();
+        if (fx == null)
+            return;
+
+        fx.Play(
+            combo,
+            _comboFxFont,
+            GetBattleComboFxColor(combo),
+            _comboFxDuration,
+            _comboFxRiseDistance);
+    }
+
+    private Color GetBattleComboFxColor(int combo)
+    {
+        if (combo >= 6)
+            return _comboFxColorHigh;
+
+        if (combo >= 4)
+            return _comboFxColorMid;
+
+        return _comboFxColorLow;
+    }
+
+    private int GetBattleComboBonus(int combo)
+    {
+        if (_comboBonusTable == null || _comboBonusTable.Length == 0)
+            return 0;
+
+        int idx = Mathf.Clamp(combo, 0, _comboBonusTable.Length - 1);
+        return Mathf.Max(0, _comboBonusTable[idx]);
+    }
+
+    private void ResetBattleComboState()
+    {
+        _comboCount = 0;
+        _maxComboCount = 0;
+    }
+    private void BeginBattleComboRound()
+    {
+        // 첫 라운드가 아니라면, 직전 라운드에서 줄 삭제를 한 번도 못 했을 때만 콤보 리셋
+        if (_comboRoundStartedOnce && !_comboHadClearThisRound)
+            _comboCount = 0;
+
+        _comboRoundStartedOnce = true;
+        _comboHadClearThisRound = false;
+    }
+   
+    private BattleLineClearFx RentLineClearFx()
+    {
+        if (_lineClearFxPool.Count == 0)
+        {
+            if (_lineClearFx == null)
+                return null;
+
+            BattleLineClearFx clone = Instantiate(_lineClearFx, _lineClearFxPoolRoot != null ? _lineClearFxPoolRoot : transform);
+            clone.PrepareForReuse();
+            clone.SetReturnToPool(ReturnLineClearFxToPool);
+            clone.RebuildCache();
+            clone.gameObject.SetActive(false);
+            _lineClearFxPool.Enqueue(clone);
+        }
+
+        BattleLineClearFx fx = _lineClearFxPool.Dequeue();
+        if (fx == null)
+            return null;
+
+        fx.transform.SetParent(_lineClearFxPoolRoot != null ? _lineClearFxPoolRoot : transform, false);
+        fx.PrepareForReuse();
+        fx.RebuildCache();
+        fx.gameObject.SetActive(true);
+
+        if (!_activeLineClearFxInstances.Contains(fx))
+            _activeLineClearFxInstances.Add(fx);
+
+        return fx;
+    }
+
+    private void ReturnLineClearFxToPool(BattleLineClearFx fx)
+    {
+        if (fx == null)
+            return;
+
+        _activeLineClearFxInstances.Remove(fx);
+
+        fx.PrepareForReuse();
+        fx.transform.SetParent(_lineClearFxPoolRoot != null ? _lineClearFxPoolRoot : transform, false);
+        fx.gameObject.SetActive(false);
+
+        _lineClearFxPool.Enqueue(fx);
+    }
+
+    private IEnumerator PlayLineClearFxPooled(List<int> completedRows, List<int> completedCols, Action<int, int> onCellCleared)
+    {
+        bool hasRows = completedRows != null && completedRows.Count > 0;
+        bool hasCols = completedCols != null && completedCols.Count > 0;
+
+        if (!hasRows && !hasCols)
+            yield break;
+
+        BattleLineClearFx fx = RentLineClearFx();
+        if (fx == null)
+        {
+            if (hasRows)
+            {
+                for (int i = 0; i < completedRows.Count; i++)
+                {
+                    int y = completedRows[i];
+                    for (int x = 0; x < BoardSize; x++)
+                        onCellCleared?.Invoke(x, y);
+                }
+            }
+
+            if (hasCols)
+            {
+                for (int i = 0; i < completedCols.Count; i++)
+                {
+                    int x = completedCols[i];
+                    for (int y = 0; y < BoardSize; y++)
+                        onCellCleared?.Invoke(x, y);
+                }
+            }
+
+            yield break;
+        }
+
+        _isResolvingLineClearFx = true;
+        yield return fx.Play(completedRows, completedCols, onCellCleared);
+        _isResolvingLineClearFx = false;
+
+        fx.ReturnToPool();
+    }
     private void BuildMyBoard()
     {
         DestroyRuntimeChildren(_myBoardRoot);
@@ -1099,6 +1375,8 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
     private void StartRound()
     {
         Debug.Log($"[BM] StartRound incoming={_incomingAttackItem}");
+
+        BeginBattleComboRound();
 
         ResetNetworkRoundSyncState();
         RefreshRoundEndButtonUI();
@@ -1682,13 +1960,60 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
         List<int> completedCols = new List<int>();
         CollectCompletedLinesForFx(completedRows, completedCols);
 
-        if (completedRows.Count > 0 || completedCols.Count > 0)
-        {
-            _isResolvingLineClearFx = true;
+        bool hadClearThisPlacement = completedRows.Count > 0 || completedCols.Count > 0;
 
+        if (hadClearThisPlacement)
+        {
             if (_lineClearFx != null)
             {
-                yield return StartCoroutine(_lineClearFx.Play(
+                yield return StartCoroutine(PlayLineClearFxPooled(
+                    completedRows,
+                    completedCols,
+                    (x, y) =>
+                    {
+                        ClearSingleCell(x, y, true);
+                        RefreshBoardVisual();
+                    }));
+            }
+            else
+            {
+                ClearCompletedLinesImmediateForFx(completedRows, completedCols);
+            }
+
+            int clearCount = completedRows.Count + completedCols.Count;
+            int baseScore = GetScore(clearCount);
+
+            // 같은 배치에서 1줄이든 3줄이든 "줄 삭제 성공 1회"로 취급
+            _comboCount += 1;
+            _comboHadClearThisRound = true;
+            _maxComboCount = Mathf.Max(_maxComboCount, _comboCount);
+
+            int comboBonus = GetBattleComboBonus(_comboCount);
+            int gainedScore = baseScore + comboBonus;
+
+            _myScore += gainedScore;
+            _pendingResolveScore += gainedScore;
+
+            if (_comboCount >= 2)
+                SpawnBattleComboFx(_comboCount);
+        }
+
+        RefreshOwnedItemUI();
+        RefreshBoardVisual();
+        RefreshSlotVisual();
+        RefreshTopHud();
+
+        if (IsRankedBattle && _battleNetDriver != null)
+        {
+            _battleNetDriver.TrySendBoardSnapshot();
+            _battleNetDriver.TrySendScoreSync(GetMyScoreForNetwork());
+        }
+
+        if (completedRows.Count > 0 || completedCols.Count > 0)
+        {
+            if (_lineClearFx != null)
+            {
+                yield return StartCoroutine(PlayLineClearFxPooled(
                     completedRows,
                     completedCols,
                     (x, y) =>
@@ -1707,8 +2032,6 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
 
             _myScore += gainedScore;
             _pendingResolveScore += gainedScore;
-
-            _isResolvingLineClearFx = false;
         }
 
         RefreshOwnedItemUI();

@@ -38,6 +38,13 @@ public class BattleDisconnectHandler : MonoBehaviour
     private bool _localReconnectPending;
     private float _localReconnectDeadlineUnscaled;
 
+    [SerializeField] private int localPauseSignalRetryCount = 1;
+    [SerializeField] private float localPauseSignalRetryWindowSeconds = 0.35f;
+
+    private int _localPauseSignalAttemptCount;
+    private float _lastLocalPauseSignalUnscaled = -999f;
+
+
     private void Awake()
     {
         if (battleManager == null)
@@ -209,6 +216,8 @@ public class BattleDisconnectHandler : MonoBehaviour
         _localReconnectDeadlineUnscaled = 0f;
         _localPauseUtcTicks = 0L;
 
+        ResetLocalPauseSignalState();
+
         if (battleManager != null)
             battleManager.SetDisconnectPauseState(false);
 
@@ -252,21 +261,35 @@ public class BattleDisconnectHandler : MonoBehaviour
         if (!CanHandleDisconnectNow())
             return;
 
-        if (_localPauseNotified)
+        if (!_localPauseNotified)
+        {
+            _localPauseNotified = true;
+            _localPauseUtcTicks = DateTime.UtcNow.Ticks;
+            _localReconnectPending = false;
+            _localReconnectDeadlineUnscaled = 0f;
+
+            ResetLocalPauseSignalState();
+
+            if (battleManager != null)
+                battleManager.SetDisconnectPauseState(true);
+
+            TrySendLocalPauseSignals(source);
+            Log($"Local pause notify / source={source} / first=true");
             return;
+        }
 
-        _localPauseNotified = true;
-        _localPauseUtcTicks = DateTime.UtcNow.Ticks;
-        _localReconnectPending = false;
-        _localReconnectDeadlineUnscaled = 0f;
+        bool canRetrySignal =
+            _localPauseSignalAttemptCount <= Mathf.Max(0, localPauseSignalRetryCount) &&
+            (Time.unscaledTime - _lastLocalPauseSignalUnscaled) <= Mathf.Max(0.05f, localPauseSignalRetryWindowSeconds);
 
-        if (battleManager != null)
-            battleManager.SetDisconnectPauseState(true);
+        if (!canRetrySignal)
+        {
+            Log($"Local pause notify ignored / source={source} / retry=false / attempts={_localPauseSignalAttemptCount}");
+            return;
+        }
 
-        if (battleNetDriver != null)
-            battleNetDriver.TrySendDisconnectPause();
-
-        Log($"Local pause notify / source={source}");
+        TrySendLocalPauseSignals($"{source}:repeat");
+        Log($"Local pause notify / source={source} / first=false / retry=true");
     }
 
     private void NotifyLocalResumed(string source)
@@ -278,6 +301,7 @@ public class BattleDisconnectHandler : MonoBehaviour
             return;
 
         _localPauseNotified = false;
+        ResetLocalPauseSignalState();
 
         double elapsedSeconds = 0d;
 
@@ -407,4 +431,28 @@ public class BattleDisconnectHandler : MonoBehaviour
 
         Debug.Log($"[BattleDisconnectHandler] {msg}");
     }
+    private void ResetLocalPauseSignalState()
+    {
+        _localPauseSignalAttemptCount = 0;
+        _lastLocalPauseSignalUnscaled = -999f;
+    }
+
+    private bool TrySendLocalPauseSignals(string source)
+    {
+        bool pauseSent = false;
+        bool syncSent = false;
+
+        if (battleNetDriver != null)
+        {
+            pauseSent = battleNetDriver.TrySendDisconnectPause();
+            syncSent = battleNetDriver.TrySendDisconnectSync(true);
+        }
+
+        _localPauseSignalAttemptCount++;
+        _lastLocalPauseSignalUnscaled = Time.unscaledTime;
+
+        Log($"Local pause signal / source={source} / attempt={_localPauseSignalAttemptCount} / pauseSent={pauseSent} / syncSent={syncSent}");
+        return pauseSent || syncSent;
+    }
+
 }

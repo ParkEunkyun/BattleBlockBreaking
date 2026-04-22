@@ -783,13 +783,19 @@ public class BattleNetDriver : MonoBehaviour
 
     public bool TrySendDisconnectPause()
     {
-        if (!IsRelayReadyForRealtime())
+        if (!CanSendDisconnectPacket())
+        {
+            Log("[SEND] DISCONNECT_PAUSE skip / canSend=false");
             return false;
+        }
 
         byte[] packet = BuildDisconnectPacket(PacketOp.DisconnectPause);
 
         if (!SendPacket(packet))
+        {
+            Log("[SEND] DISCONNECT_PAUSE failed / SendPacket=false");
             return false;
+        }
 
         Log($"[SEND] DISCONNECT_PAUSE / mySession={BattleMatchSession.MySessionId}");
         return true;

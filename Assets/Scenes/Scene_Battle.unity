@@ -2202,6 +2202,67 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 426168965}
   m_CullTransparentMesh: 1
+--- !u!1 &444941773
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 444941776}
+  - component: {fileID: 444941775}
+  - component: {fileID: 444941774}
+  m_Layer: 0
+  m_Name: BattleComboFxTemplate
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &444941774
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 444941773}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 01297660b8e942a42867314d32fc8bf3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!225 &444941775
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 444941773}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
+--- !u!224 &444941776
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 444941773}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1524103973}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &455944305
 GameObject:
   m_ObjectHideFlags: 0
@@ -7091,7 +7152,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1473744115}
-  - component: {fileID: 1473744116}
   m_Layer: 5
   m_Name: MyBoardRoot
   m_TagString: Untagged
@@ -7118,28 +7178,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 900, y: 900}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1473744116
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1473744114}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3c9150586e68576418915fb2ced61e97, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  boardCellRoot: {fileID: 1473744115}
-  boardSize: 8
-  topRowIsMaxY: 0
-  preScaleUpDuration: 0.5
-  preScaleMultiplier: 1.5
-  cellShrinkDuration: 0.008
-  intervalBetweenCells: 0.0015
-  preScaleEase: 6
-  shrinkEase: 26
-  fxSortingOrder: 500
 --- !u!1 &1498655733
 GameObject:
   m_ObjectHideFlags: 0
@@ -7483,7 +7521,18 @@ MonoBehaviour:
   loadingText: {fileID: 5393886516711085669}
   _incomingAttackTelegraphView: {fileID: 296450622}
   _opponentMiniBoardFx: {fileID: 1433857258}
-  _lineClearFx: {fileID: 1473744116}
+  _lineClearFx: {fileID: 1619680526}
+  _lineClearFxPoolSize: 4
+  _comboFxTemplate: {fileID: 444941774}
+  _comboFxFont: {fileID: 11400000, guid: 3c47d6f2f47ba0e4c83d5fec9b554b99, type: 2}
+  _comboFxOffset: {x: 0, y: 36}
+  _comboFxRiseDistance: 72
+  _comboFxDuration: 0.46
+  _comboFxPoolSize: 4
+  _comboFxColorLow: {r: 0.45, g: 0.9, b: 1, a: 1}
+  _comboFxColorMid: {r: 0.8, g: 0.45, b: 1, a: 1}
+  _comboFxColorHigh: {r: 1, g: 0.82, b: 0.25, a: 1}
+  _comboBonusTable: 00000000000000000f000000230000003c0000005a0000007d000000a5000000d200000004010000
   _myBoardDefenseFx: {fileID: 1335204462}
   _incomingAttackFx: {fileID: 915122861}
   _networkGameStarted: 0
@@ -7504,7 +7553,9 @@ Transform:
   m_LocalPosition: {x: 1315.5854, y: 511.63507, z: 3.5019026}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1619680525}
+  - {fileID: 444941776}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1524103974
@@ -7568,6 +7619,8 @@ MonoBehaviour:
     \uD328\uBC30 \uCC98\uB9AC\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
   ignoreOfflineCooldownSeconds: 2
   localReconnectFallbackSeconds: 4
+  localPauseSignalRetryCount: 1
+  localPauseSignalRetryWindowSeconds: 0.35
 --- !u!1 &1560583384
 GameObject:
   m_ObjectHideFlags: 0
@@ -7987,6 +8040,66 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 150, y: 150}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &1619680524
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1619680525}
+  - component: {fileID: 1619680526}
+  m_Layer: 0
+  m_Name: BattleLineClearFxTemplate
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1619680525
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1619680524}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1524103973}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1619680526
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1619680524}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3c9150586e68576418915fb2ced61e97, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  boardCellRoot: {fileID: 1473744115}
+  boardSize: 8
+  topRowIsMaxY: 0
+  prePulseDuration: 0.035
+  prePulseScale: 1.3
+  impactPunchDuration: 0.055
+  impactPunchStrength: 0.1
+  crushDuration: 0.022
+  crushScaleMultiplier: 0.2
+  cellShrinkDuration: 0.045
+  intervalBetweenCells: 0.003
+  prePulseEase: 6
+  crushEase: 5
+  shrinkEase: 26
+  fxSortingOrder: 500
+  prewarmCellCanvases: 1
 --- !u!1 &1625740156
 GameObject:
   m_ObjectHideFlags: 0
