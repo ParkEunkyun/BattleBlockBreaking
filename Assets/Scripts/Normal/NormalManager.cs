@@ -106,6 +106,16 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
     [SerializeField] private Color comboFxColorMid = new Color(0.80f, 0.45f, 1f, 1f);
     [SerializeField] private Color comboFxColorHigh = new Color(1f, 0.82f, 0.25f, 1f);
 
+    [Header("Pikup Loot FX")]
+
+    [SerializeField] private int pickupFlyFxPoolSize = 10;
+    [SerializeField] private float pickupFlyDuration = 0.42f;
+    [SerializeField] private float pickupFlyArcHeight = 90f;
+    [SerializeField] private float pickupFlyStartScale = 1.05f;
+    [SerializeField] private float pickupFlyEndScale = 0.42f;
+
+    private readonly Queue<NormalPickupFlyFx> _pickupFlyFxPool = new Queue<NormalPickupFlyFx>();
+
     [Header("FX Pool")]
     [SerializeField] private int normalLineClearFxPoolSize = 8;
     [SerializeField] private int normalComboFxPoolSize = 4;
@@ -138,6 +148,13 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
     [SerializeField] private TMP_Text pauseLootCountText;
     [SerializeField] private RectTransform pausePickupTarget;
     [SerializeField] private TMP_Text resultTitleText;
+
+    [Header("Result Drop UI")]
+    [SerializeField] private NormalResultDropEntryView resultDropEntryPrefab;
+    [SerializeField] private int resultDropEntryPoolSize = 8;
+
+    private readonly Queue<NormalResultDropEntryView> _resultDropEntryPool = new Queue<NormalResultDropEntryView>();
+    private readonly List<NormalResultDropEntryView> _activeResultDropEntries = new List<NormalResultDropEntryView>();
 
     private bool _isPausePopupOpen;
     private bool _runRewardsClaimed;
@@ -218,6 +235,8 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         BuildMyBoard();
         WarmupFxPools();
         WarmupPreviewPools();
+        WarmupPickupFlyPool();
+        WarmupResultDropEntryPool();
         BindButtons();
         InitArtifactSlotUI();
         LoadArtifactsFromSession();
@@ -425,6 +444,8 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
 
         if (resultPhaseRoot != null)
             resultPhaseRoot.SetActive(false);
+
+        ClearActiveResultDropEntries();
 
         RefreshPauseLootCount();
         ResetCurrentBlocks();
@@ -728,6 +749,9 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
             {
                 if (anchor.x + c.x == drop.BoardX && anchor.y + c.y == drop.BoardY)
                 {
+                    Sprite pickupSprite = GetPickupFlySprite(drop.ItemType);
+                    SpawnPickupFlyFx(pickupSprite, drop.BoardX, drop.BoardY);
+
                     switch (drop.ItemType)
                     {
                         case DropItemType.Gold: _earnedGold++; break;
@@ -814,26 +838,12 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
 
     private void BuildResultDropUI()
     {
-        if (resultDropRoot == null) return;
-        DestroyRuntimeChildren(resultDropRoot);
+        ClearActiveResultDropEntries();
 
-        void Add(Sprite spr, int count, string label)
-        {
-            if (count <= 0 || spr == null) return;
-            var go = new GameObject("DropEntry", typeof(RectTransform));
-            go.transform.SetParent(resultDropRoot, false);
-            var img = go.AddComponent<Image>();
-            img.sprite = spr;
-            img.preserveAspect = true;
-            var tgo = new GameObject("Count", typeof(RectTransform));
-            tgo.transform.SetParent(go.transform, false);
-            tgo.AddComponent<TMP_Text>().text = $"{label} × {count}";
-        }
-
-        Add(goldSprite, _earnedGold, "골드");
-        Add(stoneBasicSprite, _earnedStoneBasic, "강화석(하)");
-        Add(stoneMidSprite, _earnedStoneMid, "강화석(중)");
-        Add(stoneHighSprite, _earnedStoneHigh, "강화석(상)");
+        AddResultDropEntry(goldSprite, "골드", _earnedGold);
+        AddResultDropEntry(stoneBasicSprite, "강화석(하)", _earnedStoneBasic);
+        AddResultDropEntry(stoneMidSprite, "강화석(중)", _earnedStoneMid);
+        AddResultDropEntry(stoneHighSprite, "강화석(상)", _earnedStoneHigh);
     }
 
     // ????????????????????????????????????????????
@@ -1689,5 +1699,188 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         TMP_Text tmp = btn.GetComponentInChildren<TMP_Text>(true);
         if (tmp != null)
             tmp.text = text;
+    }
+
+    private Sprite GetPickupFlySprite(DropItemType type)
+    {
+        switch (type)
+        {
+            case DropItemType.Gold:
+                return goldSprite;
+            case DropItemType.EnhanceStoneBasic:
+                return stoneBasicSprite;
+            case DropItemType.EnhanceStoneMid:
+                return stoneMidSprite;
+            case DropItemType.EnhanceStoneHigh:
+                return stoneHighSprite;
+            default:
+                return null;
+        }
+    }
+
+    private void WarmupPickupFlyPool()
+    {
+        if (_dragLayer == null)
+            return;
+
+        while (_pickupFlyFxPool.Count < pickupFlyFxPoolSize)
+        {
+            var fx = CreatePickupFlyFxInstance();
+            ReturnPickupFlyFx(fx);
+        }
+    }
+
+    private NormalPickupFlyFx CreatePickupFlyFxInstance()
+    {
+        var go = new GameObject(
+            RuntimePrefix + "PickupFlyFx",
+            typeof(RectTransform),
+            typeof(CanvasGroup),
+            typeof(Image),
+            typeof(NormalPickupFlyFx));
+
+        go.transform.SetParent(_dragLayer, false);
+        go.transform.SetAsLastSibling();
+
+        var fx = go.GetComponent<NormalPickupFlyFx>();
+        fx.OnFinished = ReturnPickupFlyFx;
+        return fx;
+    }
+
+    private NormalPickupFlyFx RentPickupFlyFx()
+    {
+        if (_pickupFlyFxPool.Count > 0)
+            return _pickupFlyFxPool.Dequeue();
+
+        return CreatePickupFlyFxInstance();
+    }
+
+    private void ReturnPickupFlyFx(NormalPickupFlyFx fx)
+    {
+        if (fx == null)
+            return;
+
+        fx.transform.SetParent(_dragLayer, false);
+        fx.gameObject.SetActive(false);
+        _pickupFlyFxPool.Enqueue(fx);
+    }
+
+    private void SpawnPickupFlyFx(Sprite sprite, int boardX, int boardY)
+    {
+        if (sprite == null || _dragLayer == null || pausePickupTarget == null)
+            return;
+
+        if (boardX < 0 || boardX >= BattleBlockCore.BoardSize ||
+            boardY < 0 || boardY >= BattleBlockCore.BoardSize)
+            return;
+
+        BoardCell cell = _myBoardCells[boardX, boardY];
+        if (cell == null)
+            return;
+
+        RectTransform cellRt = cell.GetComponent<RectTransform>();
+        if (cellRt == null)
+            return;
+
+        Camera cam = GetUiCamera();
+
+        Vector2 from = WorldToLocalOnDragLayer(cellRt.TransformPoint(cellRt.rect.center), cam);
+        Vector2 to = WorldToLocalOnDragLayer(pausePickupTarget.TransformPoint(pausePickupTarget.rect.center), cam);
+
+        NormalPickupFlyFx fx = RentPickupFlyFx();
+        fx.transform.SetParent(_dragLayer, false);
+        fx.transform.SetAsLastSibling();
+
+        fx.Play(
+            sprite,
+            from,
+            to,
+            pickupFlyDuration,
+            pickupFlyArcHeight,
+            pickupFlyStartScale,
+            pickupFlyEndScale);
+    }
+
+    private Vector2 WorldToLocalOnDragLayer(Vector3 worldPos, Camera cam)
+    {
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            _dragLayer,
+            RectTransformUtility.WorldToScreenPoint(cam, worldPos),
+            cam,
+            out Vector2 local);
+
+        return local;
+    }
+
+    private Camera GetUiCamera()
+    {
+        if (_canvas == null)
+            return null;
+
+        return _canvas.renderMode == RenderMode.ScreenSpaceOverlay
+            ? null
+            : _canvas.worldCamera;
+    }
+
+    private void WarmupResultDropEntryPool()
+    {
+        if (resultDropRoot == null || resultDropEntryPrefab == null)
+            return;
+
+        while (_resultDropEntryPool.Count < resultDropEntryPoolSize)
+        {
+            var entry = CreateResultDropEntryInstance();
+            ReturnResultDropEntry(entry);
+        }
+    }
+
+    private NormalResultDropEntryView CreateResultDropEntryInstance()
+    {
+        var entry = Instantiate(resultDropEntryPrefab, resultDropRoot);
+        entry.gameObject.name = RuntimePrefix + "ResultDropEntry";
+        entry.gameObject.SetActive(false);
+        return entry;
+    }
+
+    private NormalResultDropEntryView RentResultDropEntry()
+    {
+        if (_resultDropEntryPool.Count > 0)
+            return _resultDropEntryPool.Dequeue();
+
+        return CreateResultDropEntryInstance();
+    }
+
+    private void ReturnResultDropEntry(NormalResultDropEntryView entry)
+    {
+        if (entry == null)
+            return;
+
+        entry.transform.SetParent(resultDropRoot, false);
+        entry.SetVisible(false);
+        _resultDropEntryPool.Enqueue(entry);
+    }
+
+    private void ClearActiveResultDropEntries()
+    {
+        for (int i = 0; i < _activeResultDropEntries.Count; i++)
+            ReturnResultDropEntry(_activeResultDropEntries[i]);
+
+        _activeResultDropEntries.Clear();
+    }
+
+    private void AddResultDropEntry(Sprite icon, string label, int count)
+    {
+        if (resultDropRoot == null || resultDropEntryPrefab == null)
+            return;
+
+        if (count <= 0 || icon == null)
+            return;
+
+        var entry = RentResultDropEntry();
+        entry.transform.SetParent(resultDropRoot, false);
+        entry.SetData(icon, label, count);
+        entry.SetVisible(true);
+
+        _activeResultDropEntries.Add(entry);
     }
 }

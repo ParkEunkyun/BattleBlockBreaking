@@ -77,11 +77,11 @@ public sealed class NormalPickupFlyFx : MonoBehaviour
             pos.y += Mathf.Sin(p * Mathf.PI) * arcHeight;
 
             float scale = Mathf.Lerp(startScale, endScale, EaseOutCubic(p));
-            float alpha = p < 0.75f ? 1f : Mathf.Lerp(1f, 0f, (p - 0.75f) / 0.25f);
+            float alpha = p < 0.78f ? 1f : Mathf.Lerp(1f, 0f, (p - 0.78f) / 0.22f);
 
             _rectTransform.anchoredPosition = pos;
             _rectTransform.localScale = Vector3.one * scale;
-            _rectTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(0f, 18f, p));
+            _rectTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(0f, 20f, p));
             _canvasGroup.alpha = alpha;
 
             yield return null;
