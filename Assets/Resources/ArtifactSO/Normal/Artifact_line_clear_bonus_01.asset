@@ -18,7 +18,7 @@ MonoBehaviour:
   grade: 0
   icon: {fileID: -1542340564, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
   artifactType: 0
-  equipEffectType: 11
+  equipEffectType: 400
   ownedEffectType: 2
   runtimeTriggerType: 1
   cooldownType: 0
@@ -26,16 +26,16 @@ MonoBehaviour:
   applyToAllRemainingBlocks: 1
   autoTriggerOnGameOver: 0
   equipValues:
+  - 5
   - 10
-  - 12
-  - 14
-  - 16
-  - 18
+  - 15
   - 20
-  - 22
-  - 24
-  - 26
+  - 25
   - 30
+  - 35
+  - 40
+  - 45
+  - 50
   ownedValues:
   - 2
   - 2.4

@@ -514,6 +514,36 @@ public class MatchManager : MonoBehaviour
 
         Log("취소 후 상태 정리 완료");
     }
+    public void CleanupAfterBattleReturnToLobby()
+    {
+        Log("배틀 종료 후 로비 복귀 정리 시작");
+
+        try
+        {
+            if (_isConnectedToMatchServer)
+            {
+                Backend.Match.LeaveMatchMakingServer();
+                Log("LeaveMatchMakingServer 요청");
+            }
+        }
+        catch (Exception e)
+        {
+            LogError("LeaveMatchMakingServer 예외", e.Message);
+        }
+
+        _ignoreLeaveMatchMakingServerCallback = false;
+        _isCancellingMatch = false;
+        _isConnectedToMatchServer = false;
+        _isInMatchRoom = false;
+
+        _pollEnabled = false;
+        enabled = false;
+
+        ResetMatchFlags();
+        BattleMatchSession.Clear();
+
+        Log("배틀 종료 후 로비 복귀 정리 완료");
+    }
 
     private void ResetMatchFlags()
     {

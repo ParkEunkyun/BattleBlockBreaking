@@ -19,24 +19,24 @@ MonoBehaviour:
   grade: 3
   icon: {fileID: 2067031746, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
   artifactType: 2
-  equipEffectType: 200
+  equipEffectType: 601
   ownedEffectType: 1
   runtimeTriggerType: 10
-  cooldownType: 3
-  activeUsableOncePerRound: 1
+  cooldownType: 1
+  activeUsableOncePerRound: 0
   applyToAllRemainingBlocks: 1
   autoTriggerOnGameOver: 0
   equipValues:
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
+  - 5
+  - 2
+  - 2
+  - 3
+  - 3
+  - 4
+  - 4
+  - 5
+  - 5
+  - 6
   ownedValues:
   - 5
   - 5.8
@@ -48,7 +48,7 @@ MonoBehaviour:
   - 12.7
   - 14.2
   - 16
-  cooldownValues: 08000000080000000700000007000000060000000600000005000000050000000400000004000000
+  cooldownValues: 03000000030000000300000003000000030000000300000003000000030000000300000003000000
   duplicateShardReward: 70
   shardSellGold: 1400
   collectionPoint: 40

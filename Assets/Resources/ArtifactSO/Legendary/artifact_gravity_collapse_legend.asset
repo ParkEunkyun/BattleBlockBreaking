@@ -23,7 +23,7 @@ MonoBehaviour:
   equipEffectType: 303
   ownedEffectType: 2
   runtimeTriggerType: 10
-  cooldownType: 2
+  cooldownType: 3
   activeUsableOncePerRound: 1
   applyToAllRemainingBlocks: 0
   autoTriggerOnGameOver: 0
@@ -49,7 +49,7 @@ MonoBehaviour:
   - 16.8
   - 18.6
   - 21
-  cooldownValues: 0c0000000c0000000b0000000b0000000a0000000a00000009000000080000000700000006000000
+  cooldownValues: 1400000014000000120000001200000010000000100000000e0000000e0000000c0000000c000000
   duplicateShardReward: 120
   shardSellGold: 5500
   collectionPoint: 60

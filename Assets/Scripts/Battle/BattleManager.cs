@@ -156,6 +156,13 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
 
     [SerializeField] private Vector2 dragOffset = new Vector2(0f, 180f);
 
+    [Header("Preview / Item FX Pool")]
+    [SerializeField] private int slotPreviewPoolPerSlot = 6;
+    [SerializeField] private int dragPreviewPoolSize = 6;
+    [SerializeField] private int itemFlyFxPoolSize = 8;
+    [SerializeField] private Vector2 itemFlyFxSize = new Vector2(42f, 42f);
+    [SerializeField] private float itemFlyFxDuration = 0.25f;
+
     [Header("Round / Phase")]
     [SerializeField] private int maxRounds = 12;
     [SerializeField] private float defensePhaseSeconds = 3f;
@@ -359,6 +366,15 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
     private Vector2Int _dragAnchor;
     private RectTransform _dragPreviewRoot;
 
+    private readonly List<Image>[] _slotPreviewPools = new List<Image>[3];
+    private readonly int[] _slotPreviewActiveCounts = new int[3];
+
+    private readonly List<Image> _dragPreviewCells = new List<Image>(8);
+    private int _dragPreviewActiveCount;
+
+    private RectTransform _itemFlyFxPoolRoot;
+    private readonly Queue<Image> _itemFlyFxPool = new Queue<Image>();
+
     private BattleItemId _incomingAttackItem = BattleItemId.None;
     private bool _itemUseBlockedThisRound;
     private int _sealedSlotIndex = -1;
@@ -538,6 +554,8 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
         _battleNetDriver = GetComponent<BattleNetDriver>();
         BuildItemSpriteMap();
         BindButtons();
+
+        InitPreviewAndItemPools();
     }
 
     private void Start()
@@ -545,6 +563,7 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
         ShowLoadingOverlay(IsRankedBattle ? "상대 연결 중..." : "준비 중...");
 
         BuildBoards();
+        WarmupPreviewAndItemPools();
         WarmupLineClearFxPool();
         WarmupComboFxPool();
         ResetBattleComboState();
@@ -909,6 +928,245 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
         BuildOpponentMiniBoard();
         RefreshBoardVisual();
         RefreshOpponentMiniBoard();
+    }
+    private void InitPreviewAndItemPools()
+    {
+        for (int i = 0; i < _slotPreviewPools.Length; i++)
+        {
+            if (_slotPreviewPools[i] == null)
+                _slotPreviewPools[i] = new List<Image>(Mathf.Max(4, slotPreviewPoolPerSlot));
+        }
+    }
+
+    private void WarmupPreviewAndItemPools()
+    {
+        InitPreviewAndItemPools();
+
+        for (int i = 0; i < _slotViews.Length; i++)
+        {
+            if (_slotViews[i] == null)
+                continue;
+
+            EnsurePreviewCellPool(
+                _slotViews[i].RectTransform,
+                _slotPreviewPools[i],
+                Mathf.Max(1, slotPreviewPoolPerSlot),
+                $"SlotPreviewCell_{i}");
+
+            HidePreviewPoolCells(_slotPreviewPools[i], 0);
+            _slotPreviewActiveCounts[i] = 0;
+        }
+
+        EnsureDragPreviewRoot();
+        EnsurePreviewCellPool(
+            _dragPreviewRoot,
+            _dragPreviewCells,
+            Mathf.Max(1, dragPreviewPoolSize),
+            "DragPreviewCell");
+
+        HidePreviewPoolCells(_dragPreviewCells, 0);
+        _dragPreviewActiveCount = 0;
+
+        if (_dragPreviewRoot != null)
+            _dragPreviewRoot.gameObject.SetActive(false);
+
+        WarmupItemFlyFxPool();
+    }
+
+    private void EnsureDragPreviewRoot()
+    {
+        if (_dragPreviewRoot != null)
+            return;
+
+        if (_dragLayer == null)
+            return;
+
+        GameObject root = new GameObject(RuntimePrefix + "DragPreview", typeof(RectTransform));
+        _dragPreviewRoot = root.GetComponent<RectTransform>();
+        _dragPreviewRoot.SetParent(_dragLayer, false);
+        _dragPreviewRoot.anchorMin = new Vector2(0.5f, 0.5f);
+        _dragPreviewRoot.anchorMax = new Vector2(0.5f, 0.5f);
+        _dragPreviewRoot.pivot = new Vector2(0.5f, 0.5f);
+        _dragPreviewRoot.gameObject.SetActive(false);
+    }
+
+    private void EnsurePreviewCellPool(RectTransform parent, List<Image> pool, int targetCount, string runtimeName)
+    {
+        if (parent == null || pool == null)
+            return;
+
+        while (pool.Count < targetCount)
+        {
+            Image img = CreatePooledPreviewCell(parent, runtimeName);
+            pool.Add(img);
+        }
+    }
+
+    private Image CreatePooledPreviewCell(RectTransform parent, string runtimeName)
+    {
+        GameObject go;
+
+        if (previewCellPrefab != null)
+        {
+            go = Instantiate(previewCellPrefab, parent);
+            go.name = RuntimePrefix + runtimeName;
+        }
+        else
+        {
+            go = new GameObject(RuntimePrefix + runtimeName, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+        }
+
+        RectTransform rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+
+        Image img = GetOrAdd<Image>(go);
+        img.raycastTarget = false;
+        img.preserveAspect = false;
+        img.sprite = null;
+        img.color = Color.white;
+
+        go.SetActive(false);
+        return img;
+    }
+
+    private void HidePreviewPoolCells(List<Image> pool, int activeCount)
+    {
+        if (pool == null)
+            return;
+
+        for (int i = activeCount; i < pool.Count; i++)
+        {
+            if (pool[i] != null)
+                pool[i].gameObject.SetActive(false);
+        }
+    }
+
+    private void SetupPooledPreviewCell(Image img, Vector2 size, Vector2 anchoredPosition, Color color, Sprite sprite)
+    {
+        if (img == null)
+            return;
+
+        RectTransform rt = img.rectTransform;
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta = size;
+        rt.anchoredPosition = anchoredPosition;
+
+        img.sprite = sprite;
+        img.color = color;
+        img.preserveAspect = false;
+        img.gameObject.SetActive(true);
+    }
+
+    private Image RentSlotPreviewCell(int slotIndex, RectTransform parent, int cellIndex)
+    {
+        if (slotIndex < 0 || slotIndex >= _slotPreviewPools.Length)
+            return null;
+
+        List<Image> pool = _slotPreviewPools[slotIndex];
+        if (pool == null)
+            return null;
+
+        if (cellIndex >= pool.Count)
+            EnsurePreviewCellPool(parent, pool, cellIndex + 1, $"SlotPreviewCell_{slotIndex}");
+
+        return cellIndex < pool.Count ? pool[cellIndex] : null;
+    }
+
+    private Image RentDragPreviewCell(int cellIndex)
+    {
+        EnsureDragPreviewRoot();
+
+        if (_dragPreviewRoot == null)
+            return null;
+
+        if (cellIndex >= _dragPreviewCells.Count)
+            EnsurePreviewCellPool(_dragPreviewRoot, _dragPreviewCells, cellIndex + 1, "DragPreviewCell");
+
+        return cellIndex < _dragPreviewCells.Count ? _dragPreviewCells[cellIndex] : null;
+    }
+
+    private void WarmupItemFlyFxPool()
+    {
+        if (_dragLayer == null)
+            return;
+
+        if (_itemFlyFxPoolRoot == null)
+        {
+            GameObject root = new GameObject(RuntimePrefix + "ItemFlyFxPool", typeof(RectTransform));
+            _itemFlyFxPoolRoot = root.GetComponent<RectTransform>();
+            _itemFlyFxPoolRoot.SetParent(_dragLayer, false);
+            _itemFlyFxPoolRoot.anchorMin = new Vector2(0.5f, 0.5f);
+            _itemFlyFxPoolRoot.anchorMax = new Vector2(0.5f, 0.5f);
+            _itemFlyFxPoolRoot.pivot = new Vector2(0.5f, 0.5f);
+        }
+
+        while (_itemFlyFxPool.Count < Mathf.Max(1, itemFlyFxPoolSize))
+        {
+            Image img = CreatePooledItemFlyFx();
+            _itemFlyFxPool.Enqueue(img);
+        }
+    }
+
+    private Image CreatePooledItemFlyFx()
+    {
+        GameObject go = new GameObject(RuntimePrefix + "ItemFly", typeof(RectTransform), typeof(Image));
+        go.transform.SetParent(_itemFlyFxPoolRoot, false);
+
+        RectTransform rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta = itemFlyFxSize;
+
+        Image img = go.GetComponent<Image>();
+        img.sprite = null;
+        img.color = Color.white;
+        img.preserveAspect = true;
+        img.raycastTarget = false;
+
+        go.SetActive(false);
+        return img;
+    }
+
+    private Image RentItemFlyFx()
+    {
+        if (_dragLayer == null)
+            return null;
+
+        if (_itemFlyFxPool.Count == 0)
+        {
+            if (_itemFlyFxPoolRoot == null)
+                WarmupItemFlyFxPool();
+
+            Image created = CreatePooledItemFlyFx();
+            _itemFlyFxPool.Enqueue(created);
+        }
+
+        Image img = _itemFlyFxPool.Dequeue();
+        if (img == null)
+            return null;
+
+        img.transform.SetParent(_dragLayer, false);
+        img.gameObject.SetActive(true);
+        return img;
+    }
+
+    private void ReturnItemFlyFx(Image img)
+    {
+        if (img == null)
+            return;
+
+        img.sprite = null;
+        img.color = Color.white;
+        img.gameObject.SetActive(false);
+        img.transform.SetParent(_itemFlyFxPoolRoot != null ? _itemFlyFxPoolRoot : _dragLayer, false);
+
+        _itemFlyFxPool.Enqueue(img);
     }
     private void WarmupLineClearFxPool()
     {
@@ -1349,12 +1607,14 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
 
         if (_useDefenseButton != null)
         {
-            _useDefenseButton.interactable = true;
-            SetButtonLabel(_useDefenseButton.transform, defenseCount > 0 ? $"방어 사용 ({defenseCount})" : "방어 없음");
+            bool canUseDefense = defenseCount > 0;
+
+            _useDefenseButton.interactable = canUseDefense;
+            SetButtonLabel(_useDefenseButton.transform, canUseDefense ? $"방어 사용 ({defenseCount})" : "방어 없음");
 
             Image btnImage = _useDefenseButton.GetComponent<Image>();
             if (btnImage != null)
-                btnImage.raycastTarget = defenseCount > 0;
+                btnImage.raycastTarget = canUseDefense;
         }
 
         if (_skipDefenseButton != null)
@@ -2007,43 +2267,7 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
         {
             _battleNetDriver.TrySendBoardSnapshot();
             _battleNetDriver.TrySendScoreSync(GetMyScoreForNetwork());
-        }
-
-        if (completedRows.Count > 0 || completedCols.Count > 0)
-        {
-            if (_lineClearFx != null)
-            {
-                yield return StartCoroutine(PlayLineClearFxPooled(
-                    completedRows,
-                    completedCols,
-                    (x, y) =>
-                    {
-                        ClearSingleCell(x, y, true);
-                        RefreshBoardVisual();
-                    }));
-            }
-            else
-            {
-                ClearCompletedLinesImmediateForFx(completedRows, completedCols);
-            }
-
-            int clearCount = completedRows.Count + completedCols.Count;
-            int gainedScore = GetScore(clearCount);
-
-            _myScore += gainedScore;
-            _pendingResolveScore += gainedScore;
-        }
-
-        RefreshOwnedItemUI();
-        RefreshBoardVisual();
-        RefreshSlotVisual();
-        RefreshTopHud();
-
-        if (IsRankedBattle && _battleNetDriver != null)
-        {
-            _battleNetDriver.TrySendBoardSnapshot();
-            _battleNetDriver.TrySendScoreSync(GetMyScoreForNetwork());
-        }
+        }        
     }
     private void CollectCompletedLinesForFx(List<int> completedRows, List<int> completedCols)
     {
@@ -2806,22 +3030,27 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
         if (sprite == null)
             yield break;
 
-        GameObject go = new GameObject(RuntimePrefix + "ItemFly", typeof(RectTransform), typeof(Image));
-        go.transform.SetParent(_dragLayer, false);
+        Image img = RentItemFlyFx();
+        if (img == null)
+            yield break;
 
-        RectTransform rt = go.GetComponent<RectTransform>();
+        RectTransform rt = img.rectTransform;
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.sizeDelta = new Vector2(42f, 42f);
+        rt.sizeDelta = itemFlyFxSize;
 
-        Image img = go.GetComponent<Image>();
         img.sprite = sprite;
         img.color = Color.white;
         img.preserveAspect = true;
         img.raycastTarget = false;
 
         RectTransform targetRt = _ownedItemButtons[targetSlotIndex].transform as RectTransform;
+        if (targetRt == null)
+        {
+            ReturnItemFlyFx(img);
+            yield break;
+        }
 
         Vector2 startScreen = RectTransformUtility.WorldToScreenPoint(null, worldStart);
         Vector2 endScreen = RectTransformUtility.WorldToScreenPoint(null, targetRt.position);
@@ -2829,21 +3058,24 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
         RectTransformUtility.ScreenPointToLocalPointInRectangle(_dragLayer, startScreen, null, out Vector2 startLocal);
         RectTransformUtility.ScreenPointToLocalPointInRectangle(_dragLayer, endScreen, null, out Vector2 endLocal);
 
-        float duration = 0.25f;
+        rt.anchoredPosition = startLocal;
+        rt.localScale = Vector3.one * 0.9f;
+
+        float duration = Mathf.Max(0.01f, itemFlyFxDuration);
         float time = 0f;
 
         while (time < duration)
         {
             time += Time.deltaTime;
             float t = Mathf.Clamp01(time / duration);
-            t = 1f - Mathf.Pow(1f - t, 3f);
+            float eased = 1f - Mathf.Pow(1f - t, 3f);
 
-            rt.anchoredPosition = Vector2.Lerp(startLocal, endLocal, t);
-            rt.localScale = Vector3.Lerp(Vector3.one * 0.9f, Vector3.one * 0.55f, t);
+            rt.anchoredPosition = Vector2.Lerp(startLocal, endLocal, eased);
+            rt.localScale = Vector3.Lerp(Vector3.one * 0.9f, Vector3.one * 0.55f, eased);
             yield return null;
         }
 
-        Destroy(go);
+        ReturnItemFlyFx(img);
     }
 
     #endregion
@@ -3005,11 +3237,16 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
             return;
 
         RectTransform root = _slotViews[slotIndex].RectTransform;
-        DestroyRuntimeChildren(root);
-
         BlockInstance block = _currentBlocks[slotIndex];
+
         if (block == null)
+        {
+            if (_slotPreviewPools[slotIndex] != null)
+                HidePreviewPoolCells(_slotPreviewPools[slotIndex], 0);
+
+            _slotPreviewActiveCounts[slotIndex] = 0;
             return;
+        }
 
         int width = GetBlockWidth(block);
         int height = GetBlockHeight(block);
@@ -3018,18 +3255,29 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
         float startX = -totalW * 0.5f + slotPreviewCellSize * 0.5f;
         float startY = totalH * 0.5f - slotPreviewCellSize * 0.5f;
 
+        int activeCount = 0;
+
         for (int i = 0; i < block.cells.Count; i++)
         {
             Vector2Int p = block.cells[i];
-            CreatePreviewCell(
-                root,
+            Image img = RentSlotPreviewCell(slotIndex, root, activeCount);
+            if (img == null)
+                continue;
+
+            SetupPooledPreviewCell(
+                img,
                 new Vector2(slotPreviewCellSize, slotPreviewCellSize),
                 new Vector2(
                     startX + (p.x * (slotPreviewCellSize + slotPreviewSpacing)),
                     startY - (p.y * (slotPreviewCellSize + slotPreviewSpacing))),
-                block.color,
+                block.cellSprite != null ? Color.white : block.color,
                 block.cellSprite);
+
+            activeCount++;
         }
+
+        HidePreviewPoolCells(_slotPreviewPools[slotIndex], activeCount);
+        _slotPreviewActiveCounts[slotIndex] = activeCount;
     }
 
     #endregion
@@ -3038,14 +3286,12 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
 
     private void CreateDragPreview(BlockInstance block)
     {
-        DestroyDragPreview();
+        EnsureDragPreviewRoot();
 
-        GameObject root = new GameObject(RuntimePrefix + "DragPreview", typeof(RectTransform));
-        _dragPreviewRoot = root.GetComponent<RectTransform>();
-        _dragPreviewRoot.SetParent(_dragLayer, false);
-        _dragPreviewRoot.anchorMin = new Vector2(0.5f, 0.5f);
-        _dragPreviewRoot.anchorMax = new Vector2(0.5f, 0.5f);
-        _dragPreviewRoot.pivot = new Vector2(0.5f, 0.5f);
+        if (_dragPreviewRoot == null || block == null)
+            return;
+
+        _dragPreviewRoot.gameObject.SetActive(true);
 
         int width = GetBlockWidth(block);
         int height = GetBlockHeight(block);
@@ -3054,26 +3300,41 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
         float startX = -totalW * 0.5f + dragPreviewCellSize * 0.5f;
         float startY = totalH * 0.5f - dragPreviewCellSize * 0.5f;
 
+        int activeCount = 0;
+
         for (int i = 0; i < block.cells.Count; i++)
         {
             Vector2Int p = block.cells[i];
-            CreatePreviewCell(
-                _dragPreviewRoot,
+            Image img = RentDragPreviewCell(activeCount);
+            if (img == null)
+                continue;
+
+            Color previewColor = block.cellSprite != null
+                ? new Color(1f, 1f, 1f, 0.85f)
+                : new Color(block.color.r, block.color.g, block.color.b, 0.85f);
+
+            SetupPooledPreviewCell(
+                img,
                 new Vector2(dragPreviewCellSize, dragPreviewCellSize),
                 new Vector2(
                     startX + (p.x * (dragPreviewCellSize + dragPreviewSpacing)),
                     startY - (p.y * (dragPreviewCellSize + dragPreviewSpacing))),
-                new Color(block.color.r, block.color.g, block.color.b, 0.85f),
+                previewColor,
                 block.cellSprite);
-        }
-    }
 
+            activeCount++;
+        }
+
+        HidePreviewPoolCells(_dragPreviewCells, activeCount);
+        _dragPreviewActiveCount = activeCount;
+    }
     private void DestroyDragPreview()
     {
-        if (_dragPreviewRoot != null)
-            Destroy(_dragPreviewRoot.gameObject);
+        HidePreviewPoolCells(_dragPreviewCells, 0);
+        _dragPreviewActiveCount = 0;
 
-        _dragPreviewRoot = null;
+        if (_dragPreviewRoot != null)
+            _dragPreviewRoot.gameObject.SetActive(false);
     }
 
     #endregion
@@ -3555,11 +3816,13 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
         if (!shouldShow)
             return;
 
-        roundEndButton.interactable = true;
+        bool canClickRoundEnd = canEnd && !_localRoundReady && !_waitingForOpponentRoundReady && !_roundSyncAdvanceQueued;
+
+        roundEndButton.interactable = canClickRoundEnd;
 
         Image img = roundEndButton.GetComponent<Image>();
         if (img != null)
-            img.raycastTarget = canEnd && !_localRoundReady;
+            img.raycastTarget = canClickRoundEnd;
 
         if (_localRoundReady)
         {
@@ -3654,6 +3917,9 @@ public class BattleManager : MonoBehaviour, IDragBlockOwner
 
     private void GoToLobbyFromResult()
     {
+        if (MatchManager.I != null)
+            MatchManager.I.CleanupAfterBattleReturnToLobby();
+
         BattleLoadoutSession.Clear();
         SceneManager.LoadScene(lobbySceneName);
     }

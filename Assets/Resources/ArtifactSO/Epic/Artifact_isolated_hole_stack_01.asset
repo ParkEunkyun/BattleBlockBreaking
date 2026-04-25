@@ -14,29 +14,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   artifactId: 'artifact_isolated_hole_stack_01 '
   displayName: "\uC815\uB9AC \uAC15\uBC15\uC99D"
-  description: "\uACE0\uB9BD \uBE48\uCE78 \uC815\uB9AC \uC2A4\uD0DD\uC744 \uBAA8\uC544
-    \uB2E4\uC74C \uD074\uB9AC\uC5B4 \uC810\uC218\uB97C \uC62C\uB9B0\uB2E4."
+  description: "\uC544\uC774\uD15C \uB4DC\uB86D\uB960\uC744 \uC0C1\uC2B9\uC2DC\uD0A8\uB2E4.
+    (\uACE8\uB4DC \uC81C\uC678)"
   grade: 2
   icon: {fileID: -2080196174, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
-  artifactType: 1
-  equipEffectType: 108
+  artifactType: 0
+  equipEffectType: 500
   ownedEffectType: 2
-  runtimeTriggerType: 9
+  runtimeTriggerType: 1
   cooldownType: 0
   activeUsableOncePerRound: 0
   applyToAllRemainingBlocks: 1
   autoTriggerOnGameOver: 0
   equipValues:
-  - 30
-  - 35
-  - 40
-  - 45
-  - 52
-  - 59
-  - 66
-  - 73
-  - 81
+  - 50
+  - 55
+  - 60
+  - 65
+  - 70
+  - 75
+  - 80
+  - 85
   - 90
+  - 100
   ownedValues:
   - 3.8
   - 4.4
@@ -54,6 +54,6 @@ MonoBehaviour:
   collectionPoint: 25
   ownedEffectDescription: "\uBCF4\uC720 \uD6A8\uACFC: \uC904 \uD074\uB9AC\uC5B4 \uC810\uC218
     \uC99D\uAC00"
-  paramA: 3
+  paramA: 0
   paramB: 0
   paramFloat: 0

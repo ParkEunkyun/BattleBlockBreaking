@@ -14,12 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   artifactId: 'artifact_cd_reduce_on_line_01 '
   displayName: "\uB0C9\uAC01 \uC7AC\uC21C\uD658\uAE30"
-  description: "\uC904 \uD074\uB9AC\uC5B4 \uC2DC \uC7A5\uCC29\uD55C \uC561\uD2F0\uBE0C
-    \uC544\uD2F0\uD329\uD2B8 \uCFE8\uB2E4\uC6B4\uC744 \uC904\uC778\uB2E4."
+  description: "\uC904 \uD074\uB9AC\uC5B4 \uC2DC \uC77C\uC815 \uD655\uB960\uB85C
+    \uC7A5\uCC29\uD55C \uC561\uD2F0\uBE0C \uC544\uD2F0\uD329\uD2B8 \uCFE8\uB2E4\uC6B4\uC744
+    \uC904\uC778\uB2E4."
   grade: 2
   icon: {fileID: 2048492511, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
-  artifactType: 1
-  equipEffectType: 109
+  artifactType: 0
+  equipEffectType: 600
   ownedEffectType: 3
   runtimeTriggerType: 1
   cooldownType: 0
@@ -27,16 +28,16 @@ MonoBehaviour:
   applyToAllRemainingBlocks: 1
   autoTriggerOnGameOver: 0
   equipValues:
-  - 1
-  - 1
-  - 1
-  - 1
-  - 1
-  - 2
-  - 2
-  - 2
-  - 2
-  - 3
+  - 30
+  - 40
+  - 50
+  - 60
+  - 70
+  - 75
+  - 80
+  - 90
+  - 100
+  - 100
   ownedValues:
   - 3.8
   - 4.4
@@ -53,6 +54,6 @@ MonoBehaviour:
   shardSellGold: 350
   collectionPoint: 25
   ownedEffectDescription: "\uBCF4\uC720 \uD6A8\uACFC: \uCF64\uBCF4 \uC810\uC218 \uC99D\uAC00"
-  paramA: 3
+  paramA: 0
   paramB: 0
   paramFloat: 0

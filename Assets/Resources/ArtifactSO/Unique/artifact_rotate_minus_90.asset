@@ -14,29 +14,28 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   artifactId: artifact_rotate_minus_90
   displayName: "\uC5ED\uD68C\uC804 \uD0DC\uC5FD"
-  description: "\uB0A8\uC544\uC788\uB294 \uBE14\uB85D \uC804\uCCB4\uB97C -90\uB3C4
-    \uD68C\uC804\uC2DC\uD0A8\uB2E4."
+  description: "\uACE8\uB4DC \uC218\uC9D1\uB7C9\uC744 \uC0C1\uC2B9\uC2DC\uD0A8\uB2E4."
   grade: 3
   icon: {fileID: 579157161, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
-  artifactType: 2
-  equipEffectType: 201
+  artifactType: 0
+  equipEffectType: 501
   ownedEffectType: 1
-  runtimeTriggerType: 10
-  cooldownType: 3
-  activeUsableOncePerRound: 1
+  runtimeTriggerType: 1
+  cooldownType: 0
+  activeUsableOncePerRound: 0
   applyToAllRemainingBlocks: 1
   autoTriggerOnGameOver: 0
   equipValues:
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
+  - 50
+  - 55
+  - 60
+  - 65
+  - 70
+  - 75
+  - 80
+  - 85
+  - 90
+  - 100
   ownedValues:
   - 5
   - 5.8

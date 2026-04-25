@@ -20,24 +20,24 @@ MonoBehaviour:
   grade: 4
   icon: {fileID: 1822792717, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
   artifactType: 3
-  equipEffectType: 301
+  equipEffectType: 701
   ownedEffectType: 2
-  runtimeTriggerType: 12
+  runtimeTriggerType: 1
   cooldownType: 4
   activeUsableOncePerRound: 0
   applyToAllRemainingBlocks: 1
   autoTriggerOnGameOver: 1
   equipValues:
-  - 20
-  - 25
-  - 30
-  - 35
-  - 40
-  - 45
-  - 50
-  - 55
-  - 60
-  - 70
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
   ownedValues:
   - 7
   - 8.1
@@ -55,6 +55,6 @@ MonoBehaviour:
   collectionPoint: 60
   ownedEffectDescription: "\uBCF4\uC720 \uD6A8\uACFC: \uC904 \uD074\uB9AC\uC5B4 \uC810\uC218
     \uC99D\uAC00\r"
-  paramA: 1
+  paramA: 0
   paramB: 0
   paramFloat: 0

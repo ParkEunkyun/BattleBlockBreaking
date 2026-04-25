@@ -22,7 +22,7 @@ MonoBehaviour:
   ownedEffectType: 1
   runtimeTriggerType: 10
   cooldownType: 3
-  activeUsableOncePerRound: 1
+  activeUsableOncePerRound: 0
   applyToAllRemainingBlocks: 1
   autoTriggerOnGameOver: 0
   equipValues:

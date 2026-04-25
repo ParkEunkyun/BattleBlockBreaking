@@ -14,29 +14,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   artifactId: artifact_edit_fate_legend
   displayName: "\uC6B4\uBA85 \uD3B8\uC9D1\uBCF8 "
-  description: "\uB0A8\uC740 \uBE14\uB85D \uC804\uCCB4\uB97C \uB354 \uC720\uB9AC\uD55C
-    \uC138\uD2B8\uB85C \uB2E4\uC2DC \uD3B8\uC9D1\uD55C\uB2E4."
+  description: "\uC544\uC774\uD15C \uB4DC\uB86D\uB960\uACFC \uACE8\uB4DC \uC218\uC9D1\uB7C9\uC744
+    \uC99D\uAC00\uC2DC\uD0A8\uB2E4."
   grade: 4
   icon: {fileID: -45785595, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
-  artifactType: 4
-  equipEffectType: 205
+  artifactType: 3
+  equipEffectType: 502
   ownedEffectType: 3
-  runtimeTriggerType: 10
-  cooldownType: 2
-  activeUsableOncePerRound: 1
+  runtimeTriggerType: 1
+  cooldownType: 0
+  activeUsableOncePerRound: 0
   applyToAllRemainingBlocks: 1
   autoTriggerOnGameOver: 0
   equipValues:
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
+  - 50
+  - 55
+  - 60
+  - 65
+  - 70
+  - 75
+  - 80
+  - 85
+  - 90
+  - 100
   ownedValues:
   - 7
   - 8.1

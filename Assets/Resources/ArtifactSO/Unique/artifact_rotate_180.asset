@@ -14,12 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   artifactId: 'artifact_rotate_180 '
   displayName: "\uC804\uBCF5 \uC7A5\uCE58 "
-  description: "\uB0A8\uC544\uC788\uB294 \uBE14\uB85D \uC804\uCCB4\uB97C 180\uB3C4
-    \uD68C\uC804\uC2DC\uD0A8\uB2E4."
+  description: "3\uB77C\uC6B4\uB4DC\uB3D9\uC548 \uBAA8\uB4E0 \uC810\uC218 \uC99D\uAC00"
   grade: 3
   icon: {fileID: -616695122, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
   artifactType: 2
-  equipEffectType: 202
+  equipEffectType: 602
   ownedEffectType: 3
   runtimeTriggerType: 10
   cooldownType: 1
@@ -27,16 +26,16 @@ MonoBehaviour:
   applyToAllRemainingBlocks: 1
   autoTriggerOnGameOver: 0
   equipValues:
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
+  - 50
+  - 65
+  - 80
+  - 95
+  - 110
+  - 125
+  - 140
+  - 160
+  - 180
+  - 200
   ownedValues:
   - 5
   - 5.8
@@ -48,11 +47,11 @@ MonoBehaviour:
   - 12.7
   - 14.2
   - 16
-  cooldownValues: 05000000050000000400000004000000040000000300000003000000030000000200000002000000
+  cooldownValues: 07000000070000000700000007000000070000000700000007000000070000000700000007000000
   duplicateShardReward: 70
   shardSellGold: 1400
   collectionPoint: 40
   ownedEffectDescription: "\uBCF4\uC720 \uD6A8\uACFC: \uCF64\uBCF4 \uC810\uC218 \uC99D\uAC00\r"
-  paramA: 0
+  paramA: 3
   paramB: 0
   paramFloat: 0

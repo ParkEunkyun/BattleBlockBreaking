@@ -18,25 +18,25 @@ MonoBehaviour:
     \uB2E4\uC74C \uD074\uB9AC\uC5B4 \uC810\uC218\uAC00 \uC99D\uAC00\uD55C\uB2E4."
   grade: 2
   icon: {fileID: -1559430522, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
-  artifactType: 1
-  equipEffectType: 105
+  artifactType: 0
+  equipEffectType: 403
   ownedEffectType: 3
-  runtimeTriggerType: 6
+  runtimeTriggerType: 1
   cooldownType: 0
   activeUsableOncePerRound: 0
   applyToAllRemainingBlocks: 1
   autoTriggerOnGameOver: 0
   equipValues:
-  - 30
-  - 35
-  - 40
-  - 46
-  - 52
-  - 59
-  - 66
-  - 73
-  - 81
-  - 90
+  - 200
+  - 400
+  - 600
+  - 800
+  - 1000
+  - 1200
+  - 1400
+  - 1600
+  - 1800
+  - 2000
   ownedValues:
   - 3.8
   - 4.4
@@ -53,6 +53,6 @@ MonoBehaviour:
   shardSellGold: 350
   collectionPoint: 25
   ownedEffectDescription: "\uBCF4\uC720 \uD6A8\uACFC: \uCF64\uBCF4 \uC810\uC218 \uC99D\uAC00"
-  paramA: 6
+  paramA: 5
   paramB: 0
   paramFloat: 0

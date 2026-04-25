@@ -12,13 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ea23bd5ba43d3914db2bd64cd1f74081, type: 3}
   m_Name: artifact_all_clear_bonus_01
   m_EditorClassIdentifier: 
-  artifactId: artifact_5cell_bonus_01
+  artifactId: artifact_all_clear_bonus_01
   displayName: "\uD074\uB9AC\uC5B4 \uBCF4\uC815\uD310"
   description: "\uBAA8\uB4E0 \uC904 \uD074\uB9AC\uC5B4 \uC810\uC218\uAC00 \uC99D\uAC00\uD55C\uB2E4."
   grade: 0
   icon: {fileID: 587276937, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
   artifactType: 0
-  equipEffectType: 11
+  equipEffectType: 401
   ownedEffectType: 2
   runtimeTriggerType: 1
   cooldownType: 0
@@ -26,16 +26,16 @@ MonoBehaviour:
   applyToAllRemainingBlocks: 1
   autoTriggerOnGameOver: 0
   equipValues:
-  - 8
-  - 10
-  - 12
-  - 14
-  - 16
-  - 18
-  - 20
-  - 22
-  - 24
-  - 28
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
   ownedValues:
   - 2
   - 2.4
@@ -52,6 +52,6 @@ MonoBehaviour:
   shardSellGold: 20
   collectionPoint: 10
   ownedEffectDescription: "\uBCF4\uC720 \uD6A8\uACFC: \uC804\uCCB4 \uC810\uC218 \uC99D\uAC00\r"
-  paramA: 0
+  paramA: 1000
   paramB: 0
   paramFloat: 0

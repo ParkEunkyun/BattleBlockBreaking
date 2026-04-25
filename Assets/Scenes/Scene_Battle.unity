@@ -7430,7 +7430,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   boardCellPrefab: {fileID: 5290489376626900888, guid: bb056b379de8b8542abd53252403fbf3, type: 3}
   previewCellPrefab: {fileID: 5290489376626900888, guid: 28d2fa834e795fd41a019ab0ec3013b4, type: 3}
-  obstacleSprite: {fileID: 21300000, guid: c1dd6138940980340a64dc65fca83e81, type: 3}
+  obstacleSprite: {fileID: -757727183, guid: 8bc41ab15028b9a40bad8236b724611d, type: 3}
   sealedSlotOverlaySprite: {fileID: 21300000, guid: f1d74ba70160ea348939dd683290212b, type: 3}
   itemSpriteEntries:
   - itemId: 1
@@ -7478,6 +7478,11 @@ MonoBehaviour:
   dragPreviewCellSize: 125
   dragPreviewSpacing: -1
   dragOffset: {x: 0, y: 180}
+  slotPreviewPoolPerSlot: 6
+  dragPreviewPoolSize: 6
+  itemFlyFxPoolSize: 8
+  itemFlyFxSize: {x: 42, y: 42}
+  itemFlyFxDuration: 0.25
   maxRounds: 12
   defensePhaseSeconds: 5
   playPhaseSeconds: 30
@@ -8087,19 +8092,25 @@ MonoBehaviour:
   boardCellRoot: {fileID: 1473744115}
   boardSize: 8
   topRowIsMaxY: 0
-  prePulseDuration: 0.035
-  prePulseScale: 1.3
-  impactPunchDuration: 0.055
-  impactPunchStrength: 0.1
-  crushDuration: 0.022
-  crushScaleMultiplier: 0.2
-  cellShrinkDuration: 0.045
-  intervalBetweenCells: 0.003
-  prePulseEase: 6
-  crushEase: 5
-  shrinkEase: 26
+  fxColor: {r: 0, g: 0, b: 0, a: 1}
+  thicknessScale: 1
   fxSortingOrder: 500
-  prewarmCellCanvases: 1
+  lineStartStagger: 0.015
+  holdDuration: 0.05
+  fadeOutDuration: 0.12
+  clearLeadDelay: 0.02
+  clearStepDelay: 0.008
+  lineTailWait: 0.025
+  sparkleCount: 18
+  sparkleMinDuration: 0.35
+  sparkleMaxDuration: 0.65
+  sparkleMaxDelay: 0.12
+  sparkleMinSize: 18
+  sparkleMaxSize: 34
+  sparkleDriftMainMin: 34
+  sparkleDriftMainMax: 90
+  sparkleDriftCrossMin: 14
+  sparkleDriftCrossMax: 34
 --- !u!1 &1625740156
 GameObject:
   m_ObjectHideFlags: 0

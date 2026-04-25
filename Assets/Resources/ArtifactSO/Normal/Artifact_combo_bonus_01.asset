@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   artifactId: artifact_combo_bonus_01
   displayName: "\uC5F0\uC1C4 \uAE30\uB85D\uC7A5"
-  description: "\uCF64\uBCF4 \uC810\uC218\uAC00 \uC99D\uAC00\uD55C\uB2E4."
+  description: "\uCF64\uBCF4\uAC00 \uB04A\uAE30\uBA74 \uC810\uC218\uB97C \uD68D\uB4DD\uD55C\uB2E4."
   grade: 0
   icon: {fileID: 1367671636, guid: 05a0ecf14d439824c8d76bfcfd1a5c49, type: 3}
   artifactType: 0
-  equipEffectType: 12
+  equipEffectType: 402
   ownedEffectType: 3
   runtimeTriggerType: 1
   cooldownType: 0
@@ -26,16 +26,16 @@ MonoBehaviour:
   applyToAllRemainingBlocks: 1
   autoTriggerOnGameOver: 0
   equipValues:
-  - 10
-  - 12
-  - 14
-  - 16
-  - 18
-  - 20
-  - 22
-  - 24
-  - 26
-  - 30
+  - 100
+  - 200
+  - 300
+  - 400
+  - 500
+  - 600
+  - 700
+  - 800
+  - 900
+  - 1000
   ownedValues:
   - 2
   - 2.4
