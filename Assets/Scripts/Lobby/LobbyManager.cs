@@ -194,6 +194,7 @@ public class LobbyManager : MonoBehaviour
     private Transform _normalArtifactPreviewRoot;
 
     [Header("Normal Artifact")]
+    [SerializeField] private LobbyNormalArtifactController _normalArtifactController;
     [SerializeField] private List<NormalArtifactDefinition> _allNormalArtifactOptions = new List<NormalArtifactDefinition>();
 
     private readonly List<NormalArtifactDefinition> _selectedNormalArtifacts = new List<NormalArtifactDefinition>(4);
@@ -457,29 +458,34 @@ public class LobbyManager : MonoBehaviour
             _editNormalArtifactButton.onClick.AddListener(OpenNormalArtifactPopup);
         }
 
+        // ConfirmArtifactButton / CloseArtifactButton은 이제 LobbyNormalArtifactController가 전담.
+        // 여기서 RemoveAllListeners() 하면 Controller 연결이 끊기므로 건드리지 않는다.
+
         if (_confirmLoadoutButton != null)
         {
             _confirmLoadoutButton.onClick.RemoveAllListeners();
             _confirmLoadoutButton.onClick.AddListener(ConfirmLoadoutSelection);
         }
-
+        /*
         if (_confirmNormalArtifactButton != null)
         {
             _confirmNormalArtifactButton.onClick.RemoveAllListeners();
             _confirmNormalArtifactButton.onClick.AddListener(ConfirmNormalArtifactSelection);
         }
+        */
 
         if (_closeLoadoutButton != null)
         {
             _closeLoadoutButton.onClick.RemoveAllListeners();
             _closeLoadoutButton.onClick.AddListener(CloseLoadoutPopup);
         }
-
+        /*
         if (_closeNormalArtifactButton != null)
         {
             _closeNormalArtifactButton.onClick.RemoveAllListeners();
             _closeNormalArtifactButton.onClick.AddListener(CloseNormalArtifactPopup);
         }
+        */
 
         if (_cancelMatchButton != null)
         {
@@ -1058,13 +1064,10 @@ public class LobbyManager : MonoBehaviour
 
             case GameMode.Normal:
                 {
-                    if (_selectedNormalArtifacts.Count <= 0)
-                    {
-                        OpenNormalArtifactPopup();
-                        return;
-                    }
-
+                    // 0개 장착이어도 시작 허용.
+                    // 실제 장착 데이터는 PlayerPrefs Store에서 읽어서 Session에 전달.
                     ApplyNormalArtifactsToSession();
+
                     ShowMatchPopup("노말 모드 준비중...");
                     _matchRoutine = StartCoroutine(CoEnterScene(normalSceneName));
                     break;
@@ -1483,6 +1486,12 @@ public class LobbyManager : MonoBehaviour
         Transform LobbyCanvas = FindLobbyCanvas();
         Transform previewRoot = _normalArtifactPreviewRoot;
 
+        if (_normalArtifactController == null)
+            _normalArtifactController = GetComponent<LobbyNormalArtifactController>();
+
+        if (_normalArtifactController == null)
+            _normalArtifactController = FindObjectOfType<LobbyNormalArtifactController>();
+
         for (int i = 0; i < _normalArtifactPreviewIcons.Length; i++)
         {
             Transform slot = previewRoot != null ? previewRoot.Find($"ArtifactSlot{i + 1}") : null;
@@ -1493,7 +1502,7 @@ public class LobbyManager : MonoBehaviour
             ? previewRoot.Find("EditArtifactButton")?.GetComponent<Button>()
             : null;
 
-        _normalArtifactPopupRoot = safeArea != null
+        _normalArtifactPopupRoot = LobbyCanvas != null
             ? LobbyCanvas.Find("ArtifactPopupRoot")?.gameObject
             : null;
 
@@ -1515,13 +1524,8 @@ public class LobbyManager : MonoBehaviour
             _selectedNormalArtifactPreviewIcons[i] = EnsureSlotIcon(slot);
         }
 
-        _normalArtifactChoiceButtons = new ChoiceButtonRefs[_allNormalArtifactOptions.Count];
-
-        for (int i = 0; i < _allNormalArtifactOptions.Count; i++)
-        {
-            Transform buttonRoot = popupPanel != null ? popupPanel.Find($"AttackItemButton ({i + 1})") : null;
-            _normalArtifactChoiceButtons[i] = CacheChoiceButton(buttonRoot);
-        }
+        // 구버전 정적 아티팩트 버튼 캐싱은 더 이상 사용하지 않음.
+        _normalArtifactChoiceButtons = new ChoiceButtonRefs[0];
 
         _confirmNormalArtifactButton = popupPanel != null
             ? popupPanel.Find("ConfirmArtifactButton")?.GetComponent<Button>()
@@ -1530,42 +1534,56 @@ public class LobbyManager : MonoBehaviour
         _closeNormalArtifactButton = popupPanel != null
             ? popupPanel.Find("CloseArtifactButton")?.GetComponent<Button>()
             : null;
+
+        EnsureNormalArtifactController();
+    }
+
+    private void EnsureNormalArtifactController()
+    {
+        if (_normalArtifactController == null)
+            _normalArtifactController = GetComponent<LobbyNormalArtifactController>();
+
+        if (_normalArtifactController == null)
+            _normalArtifactController = FindObjectOfType<LobbyNormalArtifactController>();
+
+        // 중요:
+        // _allNormalArtifactOptions가 비어 있으면 Controller의 catalog를 덮지 않는다.
+        if (_normalArtifactController != null && _allNormalArtifactOptions != null && _allNormalArtifactOptions.Count > 0)
+            _normalArtifactController.SetCatalog(_allNormalArtifactOptions);
     }
 
     private void LoadSavedNormalArtifactsOrDefault()
     {
+        SyncSelectedNormalArtifactsFromOwnershipStore();
+    }
+    private void SyncSelectedNormalArtifactsFromOwnershipStore()
+    {
         _selectedNormalArtifacts.Clear();
-        _editingNormalArtifacts.Clear();
 
-        int count = Mathf.Clamp(PlayerPrefs.GetInt(PrefNormalArtifactCount, 0), 0, 4);
+        List<NormalArtifactDefinition> equipped =
+            NormalArtifactOwnershipStore.LoadEquippedDefinitions(_allNormalArtifactOptions);
 
-        int[] saved =
+        for (int i = 0; i < equipped.Count && _selectedNormalArtifacts.Count < 4; i++)
         {
-        PlayerPrefs.GetInt(PrefNormalArtifact0, -1),
-        PlayerPrefs.GetInt(PrefNormalArtifact1, -1),
-        PlayerPrefs.GetInt(PrefNormalArtifact2, -1),
-        PlayerPrefs.GetInt(PrefNormalArtifact3, -1)
-    };
+            NormalArtifactDefinition def = equipped[i];
 
-        for (int i = 0; i < count && i < saved.Length; i++)
-        {
-            NormalArtifactDefinition def = FindNormalArtifactBySavedIndex(saved[i]);
-            if (def == null) continue;
-            if (_selectedNormalArtifacts.Contains(def)) continue;
+            if (def == null)
+                continue;
+
+            if (_selectedNormalArtifacts.Contains(def))
+                continue;
 
             _selectedNormalArtifacts.Add(def);
         }
 
         CopyNormalArtifactList(_selectedNormalArtifacts, _editingNormalArtifacts);
+        NormalArtifactSession.Set(_selectedNormalArtifacts);
     }
 
     private void SaveNormalArtifacts()
     {
-        PlayerPrefs.SetInt(PrefNormalArtifactCount, _selectedNormalArtifacts.Count);
-        PlayerPrefs.SetInt(PrefNormalArtifact0, GetSavedNormalArtifactIndex(0));
-        PlayerPrefs.SetInt(PrefNormalArtifact1, GetSavedNormalArtifactIndex(1));
-        PlayerPrefs.SetInt(PrefNormalArtifact2, GetSavedNormalArtifactIndex(2));
-        PlayerPrefs.SetInt(PrefNormalArtifact3, GetSavedNormalArtifactIndex(3));
+        NormalArtifactOwnershipStore.SaveEquippedDefinitions(_selectedNormalArtifacts);
+        NormalArtifactSession.Set(_selectedNormalArtifacts);
     }
 
     private int GetSavedNormalArtifactIndex(int slotIndex)
@@ -1587,21 +1605,41 @@ public class LobbyManager : MonoBehaviour
 
     private void OpenNormalArtifactPopup()
     {
-        CopyNormalArtifactList(_selectedNormalArtifacts, _editingNormalArtifacts);
-        RefreshNormalArtifactPopupUI();
+        EnsureNormalArtifactController();
 
-        if (_normalArtifactPopupRoot != null)
-            _normalArtifactPopupRoot.SetActive(true);
+        if (_normalArtifactController == null)
+        {
+            Debug.LogError("[LobbyManager] LobbyNormalArtifactController 연결 안 됨");
+            return;
+        }
+
+        // EnsureNormalArtifactController()에서 catalog 전달 처리함.
+        // 여기서 다시 SetCatalog()를 강제 호출하지 않는다.
+        _normalArtifactController.OpenPopup();
     }
 
     private void CloseNormalArtifactPopup()
     {
+        if (_normalArtifactController != null)
+        {
+            _normalArtifactController.ClosePopup();
+            return;
+        }
+
         if (_normalArtifactPopupRoot != null)
             _normalArtifactPopupRoot.SetActive(false);
     }
 
     private void HideNormalArtifactPopup()
     {
+        EnsureNormalArtifactController();
+
+        if (_normalArtifactController != null)
+        {
+            _normalArtifactController.ClosePopup();
+            return;
+        }
+
         if (_normalArtifactPopupRoot != null)
             _normalArtifactPopupRoot.SetActive(false);
     }
@@ -1634,22 +1672,61 @@ public class LobbyManager : MonoBehaviour
 
     private void ConfirmNormalArtifactSelection()
     {
-        if (_editingNormalArtifacts.Count <= 0)
-            return;
-
         CopyNormalArtifactList(_editingNormalArtifacts, _selectedNormalArtifacts);
         SaveNormalArtifacts();
+        NormalArtifactSession.Set(_selectedNormalArtifacts);
+
         RefreshPreviewUI();
         CloseNormalArtifactPopup();
+
+        Debug.Log($"[LobbyManager] 구버전 아티팩트 확정 처리: {_selectedNormalArtifacts.Count}개");
     }
 
     private void ApplyNormalArtifactsToSession()
     {
+        _selectedNormalArtifacts.Clear();
+
+        List<NormalArtifactDefinition> equipped =
+            NormalArtifactOwnershipStore.LoadEquippedDefinitions(_allNormalArtifactOptions);
+
+        for (int i = 0; i < equipped.Count && _selectedNormalArtifacts.Count < 4; i++)
+        {
+            NormalArtifactDefinition def = equipped[i];
+
+            if (def == null)
+                continue;
+
+            if (_selectedNormalArtifacts.Contains(def))
+                continue;
+
+            _selectedNormalArtifacts.Add(def);
+        }
+
         NormalArtifactSession.Set(_selectedNormalArtifacts);
+
+        Debug.Log($"[LobbyManager] NormalArtifactSession 적용 / Store Equipped={_selectedNormalArtifacts.Count}");
     }
 
     private void RefreshNormalArtifactPreviewUI()
     {
+        _selectedNormalArtifacts.Clear();
+
+        List<NormalArtifactDefinition> equipped =
+            NormalArtifactOwnershipStore.LoadEquippedDefinitions(_allNormalArtifactOptions);
+
+        for (int i = 0; i < equipped.Count && _selectedNormalArtifacts.Count < 4; i++)
+        {
+            NormalArtifactDefinition def = equipped[i];
+
+            if (def == null)
+                continue;
+
+            if (_selectedNormalArtifacts.Contains(def))
+                continue;
+
+            _selectedNormalArtifacts.Add(def);
+        }
+
         for (int i = 0; i < _normalArtifactPreviewIcons.Length; i++)
         {
             NormalArtifactDefinition def = i < _selectedNormalArtifacts.Count
@@ -1757,6 +1834,32 @@ public class LobbyManager : MonoBehaviour
                 return normalArtifactSlotSprite;
         }
     }
+    private static Color GetArtifactGradeSlotColor(NormalArtifactDefinition def)
+    {
+        if (def == null)
+            return Color.white;
+
+        switch (def.grade)
+        {
+            case ArtifactGrade.Normal:
+                return new Color(170, 170, 170, 255); 
+
+            case ArtifactGrade.Rare:
+                return new Color(117, 155, 231, 255); 
+
+            case ArtifactGrade.Epic:
+                return new Color(185, 120, 231, 255); 
+
+            case ArtifactGrade.Unique:
+                return new Color(231, 222, 120, 255); 
+
+            case ArtifactGrade.Legend:
+                return new Color(117, 232, 145, 255); 
+
+            default:
+                return Color.white;
+        }
+    }
 
     private void RefreshNormalArtifactChoiceButtonVisual(ChoiceButtonRefs refs, NormalArtifactDefinition def, bool selected)
     {
@@ -1779,10 +1882,8 @@ public class LobbyManager : MonoBehaviour
 
         if (refs.background != null)
         {
-            refs.background.sprite = GetArtifactGradeSlotSprite(def);
-            refs.background.color = Color.white;
-            refs.background.type = Image.Type.Simple;
-            refs.background.preserveAspect = false;
+            // 등급 표현은 Sprite 교체가 아니라 Color만 변경
+            refs.background.color = GetArtifactGradeSlotColor(def);
         }
     }
 
@@ -1795,13 +1896,21 @@ public class LobbyManager : MonoBehaviour
         if (slotRoot == null)
             return;
 
-        Image slotImage = slotRoot.GetComponent<Image>();
-        if (slotImage == null)
+        Image frameImage = null;
+
+        Transform gradeFrameTr = slotRoot.Find("GradeFrame");
+        if (gradeFrameTr != null)
+            frameImage = gradeFrameTr.GetComponent<Image>();
+
+        if (frameImage == null)
+            frameImage = slotRoot.GetComponent<Image>();
+
+        if (frameImage == null)
             return;
 
-        slotImage.sprite = GetArtifactGradeSlotSprite(def);
-        slotImage.color = Color.white;
-        slotImage.type = Image.Type.Simple;
-        slotImage.preserveAspect = false;
+        // 중요:
+        // 여기서 sprite는 절대 바꾸지 않는다.
+        // 기존 슬롯 Sprite는 유지하고 색상만 등급에 맞춰 변경한다.
+        frameImage.color = GetArtifactGradeSlotColor(def);
     }
 }

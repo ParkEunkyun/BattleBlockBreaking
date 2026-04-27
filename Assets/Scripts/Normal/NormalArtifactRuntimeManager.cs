@@ -1336,10 +1336,13 @@ public sealed class NormalArtifactRuntimeManager : MonoBehaviour
         if (def == null)
             return 1;
 
-        if (_artifactLevels.TryGetValue(def.artifactId, out int level))
+        if (!string.IsNullOrWhiteSpace(def.artifactId) &&
+            _artifactLevels.TryGetValue(def.artifactId, out int level))
+        {
             return Mathf.Clamp(level, 1, 10);
+        }
 
-        return 1;
+        return NormalArtifactLevelUtility.GetLevel(def);
     }
 
     private float GetBestAmplifyPercent()

@@ -47,8 +47,11 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
 
     private sealed class ArtifactSlot
     {
+        public int Index;
         public NormalArtifactDefinition Def;
+        public int Level = 1;
         public int CooldownRemaining;
+
         public bool IsReady => CooldownRemaining <= 0;
 
         // UI
@@ -56,12 +59,16 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         public Image FrameImage;
         public Image IconImage;
         public TMP_Text NameText;
+        public TMP_Text LevelText;
         public TMP_Text CooldownText;
         public Image ReadyGlow;
 
         // Charge / Stack UI
         public Slider ChargeSlider;
         public TMP_Text ChargeSliderStateText;
+
+        // Touch
+        public NormalArtifactPressHandler PressHandler;
     }
 
     // ????????????????????????????????????????????
@@ -162,6 +169,10 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
     [SerializeField] private Color artifactChargeReadyColor = new Color(0.45f, 1f, 0.45f, 1f);
     [SerializeField] private Color artifactChargeChargingColor = new Color(1f, 0.82f, 0.28f, 1f);
     [SerializeField] private Color artifactChargeEmptyColor = new Color(0.35f, 0.35f, 0.35f, 0.85f);
+
+    [Header("Artifact Tooltip")]
+    [SerializeField] private NormalArtifactTooltipView artifactLongPressTooltip;
+    [SerializeField] private float artifactLongPressSeconds = 0.45f;
 
     [Header("UI (자동 탐색)")]
     [SerializeField] private TMP_Text scoreText;
@@ -401,28 +412,57 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
     private void InitArtifactSlotUI()
     {
         Transform sa = FindSafeArea();
-        if (sa == null) return;
+        if (sa == null)
+            return;
+
+        if (artifactLongPressTooltip == null)
+            artifactLongPressTooltip = FindComp<NormalArtifactTooltipView>(sa, "ArtifactLongPressTooltip");
 
         for (int i = 0; i < 4; i++)
         {
             Transform slotTr = sa.Find($"ArtifactRoot/ArtifactSlot{i + 1}");
-            if (slotTr == null) continue;
+            if (slotTr == null)
+                continue;
 
-            _artifactSlots[i] = new ArtifactSlot
+            int cap = i;
+
+            NormalArtifactPressHandler pressHandler = GetOrAdd<NormalArtifactPressHandler>(slotTr.gameObject);
+            pressHandler.Bind(
+                () => OnClickArtifactSlot(cap),
+                () => ShowArtifactTooltip(cap),
+                HideArtifactTooltip,
+                artifactLongPressSeconds);
+
+            Button button = slotTr.GetComponent<Button>();
+            if (button != null)
             {
+                button.onClick.RemoveAllListeners();
+
+                // 클릭/롱프레스는 PressHandler가 전담.
+                // GameObject는 켜둔 상태라 Raycast는 그대로 동작함.
+                button.enabled = false;
+            }
+
+            Image frameImage = slotTr.GetComponent<Image>();
+            if (frameImage != null)
+                frameImage.raycastTarget = true;
+
+            ArtifactSlot slot = new ArtifactSlot
+            {
+                Index = i,
                 Root = slotTr as RectTransform,
-                FrameImage = slotTr.GetComponent<Image>(),
+                FrameImage = frameImage,
                 IconImage = FindComp<Image>(slotTr, "Icon"),
                 NameText = FindTMP(slotTr, "NameText"),
+                LevelText = FindTMP(slotTr, "LevelText"),
                 CooldownText = FindTMP(slotTr, "CooldownText"),
                 ReadyGlow = FindComp<Image>(slotTr, "ReadyGlow"),
                 ChargeSlider = FindComp<Slider>(slotTr, "ChargeSlider"),
-                ChargeSliderStateText = FindTMP(slotTr, "ChargeSlider/StateText")
+                ChargeSliderStateText = FindTMP(slotTr, "ChargeSlider/StateText"),
+                PressHandler = pressHandler
             };
 
-            int cap = i;
-            GetOrAdd<Button>(slotTr.gameObject).onClick.RemoveAllListeners();
-            GetOrAdd<Button>(slotTr.gameObject).onClick.AddListener(() => OnClickArtifactSlot(cap));
+            _artifactSlots[i] = slot;
         }
 
         RefreshArtifactUI();
@@ -431,10 +471,15 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
     // ── 외부에서 아티팩트 주입 (LobbyController가 호출) ──
     public void SetArtifact(int slotIndex, NormalArtifactDefinition def)
     {
-        var slot = _artifactSlots[slotIndex];
-        if (slot == null) return;
+        if (slotIndex < 0 || slotIndex >= _artifactSlots.Length)
+            return;
+
+        ArtifactSlot slot = _artifactSlots[slotIndex];
+        if (slot == null)
+            return;
 
         slot.Def = def;
+        slot.Level = NormalArtifactLevelUtility.GetLevel(def);
         slot.CooldownRemaining = 0;
 
         RefreshArtifactSlotUI(slot);
@@ -868,10 +913,16 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
 
     private void OnClickArtifactSlot(int index)
     {
+        HideArtifactTooltip();
+
         if (!CanAcceptUserInput())
             return;
 
-        var slot = _artifactSlots[index];
+        if (index < 0 || index >= _artifactSlots.Length)
+            return;
+
+        ArtifactSlot slot = _artifactSlots[index];
+
         if (slot?.Def == null)
             return;
 
@@ -881,11 +932,36 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         if (slot.Def.runtimeTriggerType != NormalArtifactTriggerType.ManualButton)
             return;
 
-        if (!slot.IsReady)
-            return;
-
         TryActivateArtifact(index);
         RefreshAllUI();
+    }
+
+    private void ShowArtifactTooltip(int index)
+    {
+        if (index < 0 || index >= _artifactSlots.Length)
+            return;
+
+        ArtifactSlot slot = _artifactSlots[index];
+        if (slot == null || slot.Def == null)
+            return;
+
+        int level = slot.Level;
+
+        if (_artifactRuntime != null)
+        {
+            NormalArtifactRuntimeManager.RuntimeArtifactState state = _artifactRuntime.GetEquippedState(index);
+            if (state != null && state.definition == slot.Def)
+                level = state.level;
+        }
+
+        if (artifactLongPressTooltip != null)
+            artifactLongPressTooltip.Show(slot.Def, level);
+    }
+
+    private void HideArtifactTooltip()
+    {
+        if (artifactLongPressTooltip != null)
+            artifactLongPressTooltip.Hide();
     }
 
     // ????????????????????????????????????????????
@@ -1703,25 +1779,16 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         if (bestScoreText != null) bestScoreText.text = $"최고 : {GetBestScore():N0}";
         if (comboText != null) comboText.text = _combo > 0 ? $"콤보 {_combo}" : "";
     }
-    private Sprite GetArtifactSlotFrameSprite(NormalArtifactDefinition def)
+    private Sprite GetArtifactSlotFrameSprite(ArtifactGrade grade)
     {
-        if (def == null)
-            return normalArtifactSlotSprite;
-
-        switch (def.grade)
+        switch (grade)
         {
-            case ArtifactGrade.Normal:
-                return normalArtifactSlotSprite;
-            case ArtifactGrade.Rare:
-                return rareArtifactSlotSprite;
-            case ArtifactGrade.Epic:
-                return epicArtifactSlotSprite;
-            case ArtifactGrade.Unique:
-                return uniqueArtifactSlotSprite;
-            case ArtifactGrade.Legend:
-                return legendArtifactSlotSprite;
-            default:
-                return normalArtifactSlotSprite;
+            case ArtifactGrade.Normal: return normalArtifactSlotSprite;
+            case ArtifactGrade.Rare: return rareArtifactSlotSprite;
+            case ArtifactGrade.Epic: return epicArtifactSlotSprite;
+            case ArtifactGrade.Unique: return uniqueArtifactSlotSprite;
+            case ArtifactGrade.Legend: return legendArtifactSlotSprite;
+            default: return normalArtifactSlotSprite;
         }
     }
 
@@ -1731,29 +1798,24 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
             return;
 
         ArtifactSlot slot = _artifactSlots[slotIndex];
-        if (slot == null || slot.ChargeSliderStateText == null)
+        if (slot == null)
             return;
 
-        slot.ChargeSliderStateText.gameObject.SetActive(true);
-        slot.ChargeSliderStateText.text = text;
+        if (slot.ChargeSliderStateText != null)
+        {
+            slot.ChargeSliderStateText.gameObject.SetActive(!string.IsNullOrWhiteSpace(text));
+            slot.ChargeSliderStateText.text = text;
+        }
+        else if (slot.CooldownText != null)
+        {
+            slot.CooldownText.gameObject.SetActive(!string.IsNullOrWhiteSpace(text));
+            slot.CooldownText.text = text;
+        }
     }
-
     private void RefreshArtifactUI()
     {
         for (int i = 0; i < _artifactSlots.Length; i++)
-        {
-            ArtifactSlot slot = _artifactSlots[i];
-            if (slot == null)
-                continue;
-
-            NormalArtifactRuntimeManager.RuntimeArtifactState state =
-                _artifactRuntime != null ? _artifactRuntime.GetEquippedState(i) : null;
-
-            slot.CooldownRemaining = state != null ? state.currentCooldown : 0;
-
-            RefreshArtifactSlotUI(slot);
-            RefreshArtifactChargeSliderUI(i, slot);
-        }
+            RefreshArtifactSlotUI(_artifactSlots[i]);
     }
 
     private void RefreshArtifactSlotUI(ArtifactSlot slot)
@@ -1761,85 +1823,211 @@ public sealed class NormalManager : MonoBehaviour, IDragBlockOwner
         if (slot == null)
             return;
 
-        bool hasDef = slot.Def != null;
-        bool isActive = hasDef && slot.Def.IsActiveArtifact;
-        bool consumedGameOnce = slot.CooldownRemaining == int.MaxValue;
+        NormalArtifactDefinition def = slot.Def;
+        bool hasItem = def != null;
 
-        bool isComboPreserveCharge =
-            hasDef &&
-            slot.Def.equipEffectType == NormalArtifactEquipEffectType.ComboPreserveChance;
+        NormalArtifactRuntimeManager.RuntimeArtifactState state = null;
 
-        bool showCooldownText =
-            hasDef &&
-            (isActive || isComboPreserveCharge);
+        if (hasItem && _artifactRuntime != null)
+        {
+            state = _artifactRuntime.GetEquippedState(slot.Index);
 
-        Button button = slot.Root != null ? slot.Root.GetComponent<Button>() : null;
-        if (button != null)
-            button.interactable = hasDef && isActive && !consumedGameOnce;
+            if (state != null && state.definition == def)
+            {
+                slot.Level = state.level;
+                slot.CooldownRemaining = state.currentCooldown;
+            }
+            else
+            {
+                slot.Level = NormalArtifactLevelUtility.GetLevel(def);
+                slot.CooldownRemaining = 0;
+            }
+        }
+        else
+        {
+            slot.Level = NormalArtifactLevelUtility.GetLevel(def);
+            slot.CooldownRemaining = 0;
+        }
 
         if (slot.FrameImage != null)
         {
-            slot.FrameImage.sprite = GetArtifactSlotFrameSprite(slot.Def);
-            slot.FrameImage.color = Color.white;
-            slot.FrameImage.preserveAspect = false;
-            slot.FrameImage.raycastTarget = hasDef && isActive;
+            slot.FrameImage.sprite = hasItem ? GetArtifactSlotFrameSprite(def.grade) : normalArtifactSlotSprite;
+            slot.FrameImage.color = hasItem ? Color.white : artifactDisabledColor;
         }
 
         if (slot.IconImage != null)
         {
-            slot.IconImage.sprite = hasDef ? slot.Def.icon : null;
-            slot.IconImage.enabled = hasDef && slot.Def.icon != null;
-            slot.IconImage.raycastTarget = hasDef && isActive;
-
-            bool shouldDim =
-                !hasDef ||
-                consumedGameOnce ||
-                (isActive && !slot.IsReady);
-
-            // 영점 유지장치는 패시브 충전형이라 쿨다운 중이어도 어둡게 죽이지 않음
-            if (isComboPreserveCharge)
-                shouldDim = false;
-
-            slot.IconImage.color = shouldDim ? artifactDisabledColor : Color.white;
+            slot.IconImage.gameObject.SetActive(hasItem);
+            slot.IconImage.sprite = hasItem ? def.icon : null;
+            slot.IconImage.enabled = hasItem && def.icon != null;
             slot.IconImage.preserveAspect = true;
         }
 
         if (slot.NameText != null)
-            slot.NameText.text = hasDef ? slot.Def.DisplayNameSafe : string.Empty;
+            slot.NameText.text = hasItem ? def.DisplayNameSafe : string.Empty;
+
+        if (slot.LevelText != null)
+        {
+            slot.LevelText.gameObject.SetActive(hasItem);
+            slot.LevelText.text = hasItem ? $"Lv.{Mathf.Clamp(slot.Level, 1, 10)}" : string.Empty;
+        }
+
+        bool manualActive =
+            hasItem &&
+            def.IsActiveArtifact &&
+            def.runtimeTriggerType == NormalArtifactTriggerType.ManualButton;
+
+        bool ready = hasItem && GetArtifactSlotReady(slot, state);
 
         if (slot.CooldownText != null)
         {
-            if (!showCooldownText)
+            if (!hasItem)
             {
                 slot.CooldownText.text = string.Empty;
+                slot.CooldownText.gameObject.SetActive(false);
             }
-            else if (consumedGameOnce)
+            else if (!manualActive)
             {
-                slot.CooldownText.text = "X";
-            }
-            else if (slot.CooldownRemaining > 0)
-            {
-                slot.CooldownText.text = slot.CooldownRemaining.ToString();
+                slot.CooldownText.text = string.Empty;
+                slot.CooldownText.gameObject.SetActive(false);
             }
             else
             {
-                slot.CooldownText.text = string.Empty;
+                slot.CooldownText.gameObject.SetActive(true);
+
+                if (slot.CooldownRemaining == int.MaxValue)
+                    slot.CooldownText.text = "";
+                else if (slot.CooldownRemaining > 0)
+                    slot.CooldownText.text = slot.CooldownRemaining.ToString();
+                else
+                    slot.CooldownText.text = "";
             }
         }
 
         if (slot.ReadyGlow != null)
-        {
-            bool glow =
-                hasDef &&
-                !consumedGameOnce &&
-                (
-                    (isActive && slot.IsReady) ||
-                    (isComboPreserveCharge && slot.CooldownRemaining <= 0)
-                );
+            slot.ReadyGlow.gameObject.SetActive(hasItem && ready);
 
-            slot.ReadyGlow.enabled = glow;
-            slot.ReadyGlow.raycastTarget = false;
+        RefreshArtifactChargeUI(slot, state, manualActive, ready);
+    }
+
+    private void RefreshArtifactChargeUI(
+    ArtifactSlot slot,
+    NormalArtifactRuntimeManager.RuntimeArtifactState state,
+    bool manualActive,
+    bool ready)
+    {
+        if (slot == null || slot.ChargeSlider == null)
+            return;
+
+        NormalArtifactDefinition def = slot.Def;
+        bool hasItem = def != null;
+
+        float fill = 0f;
+        bool gaugeReady = false;
+        string stateText = string.Empty;
+        bool showGauge = false;
+
+        if (hasItem && _artifactRuntime != null)
+        {
+            showGauge = _artifactRuntime.TryGetArtifactGaugeStatus(
+                slot.Index,
+                out fill,
+                out gaugeReady,
+                out stateText);
         }
+
+        if (!showGauge && hasItem && manualActive)
+        {
+            int cdMax = Mathf.Max(0, def.GetCooldownValue(slot.Level));
+
+            if (cdMax > 0)
+            {
+                showGauge = true;
+
+                if (slot.CooldownRemaining == int.MaxValue)
+                {
+                    fill = 0f;
+                    gaugeReady = false;
+                    stateText = "USED";
+                }
+                else if (slot.CooldownRemaining > 0)
+                {
+                    fill = 1f - Mathf.Clamp01(slot.CooldownRemaining / (float)cdMax);
+                    gaugeReady = false;
+                    stateText = string.Empty;
+                }
+                else
+                {
+                    fill = 1f;
+                    gaugeReady = true;
+                    stateText = "READY";
+                }
+            }
+            else
+            {
+                showGauge = true;
+                fill = ready ? 1f : 0f;
+                gaugeReady = ready;
+                stateText = ready ? "READY" : string.Empty;
+            }
+        }
+
+        slot.ChargeSlider.gameObject.SetActive(showGauge && hasItem);
+        slot.ChargeSlider.value = Mathf.Clamp01(fill);
+
+        if (slot.ChargeSliderStateText != null)
+        {
+            slot.ChargeSliderStateText.gameObject.SetActive(showGauge && hasItem && !string.IsNullOrWhiteSpace(stateText));
+            slot.ChargeSliderStateText.text = stateText;
+        }
+
+        if (!showGauge || !hasItem)
+        {
+            SetArtifactSliderFillColor(slot.ChargeSlider, artifactChargeEmptyColor);
+            return;
+        }
+
+        if (gaugeReady || ready)
+            SetArtifactSliderFillColor(slot.ChargeSlider, artifactChargeReadyColor);
+        else if (fill > 0f)
+            SetArtifactSliderFillColor(slot.ChargeSlider, artifactChargeChargingColor);
+        else
+            SetArtifactSliderFillColor(slot.ChargeSlider, artifactChargeEmptyColor);
+    }
+    private bool GetArtifactSlotReady(
+    ArtifactSlot slot,
+    NormalArtifactRuntimeManager.RuntimeArtifactState state)
+    {
+        if (slot == null || slot.Def == null)
+            return false;
+
+        NormalArtifactDefinition def = slot.Def;
+
+        if (state == null)
+            return slot.CooldownRemaining <= 0;
+
+        if (state.currentCooldown > 0)
+            return false;
+
+        if (def.equipEffectType == NormalArtifactEquipEffectType.ActiveChargeRotate90)
+            return state.activeChargesRemaining > 0;
+
+        if (def.equipEffectType == NormalArtifactEquipEffectType.ComboPreserveChance)
+            return state.comboPreserveRemaining > 0;
+
+        if (def.equipEffectType == NormalArtifactEquipEffectType.ChargeNextClearAfterPlacements)
+            return state.placementChargeReady;
+
+        return true;
+    }
+    private void SetArtifactSliderFillColor(Slider slider, Color color)
+    {
+        if (slider == null || slider.fillRect == null)
+            return;
+
+        Image fillImage = slider.fillRect.GetComponent<Image>();
+        if (fillImage != null)
+            fillImage.color = color;
     }
 
     private void RefreshArtifactChargeSliderUI(int slotIndex, ArtifactSlot slot)
